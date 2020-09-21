@@ -70,32 +70,37 @@ void st7735s_setWindow(uint8_t x0, uint8_t y0, uint8_t w, uint8_t h) {
     st7735s_dat16(w + x0 - 1 + 1);
 }
 
+static inline void st7735s_default() {
+    st7735s_setWindow(0, 0, 160, 80);
+}
+
 void st7735s_init() {
+    // reset display
     ST7735S_RST_L;
     delay(10);
 
     ST7735S_RST_H;
     delay(10);
 
-    st7735s_cmd(0x01); 
+    st7735s_cmd(0x01); // software reset
     delay(120);
 
-    st7735s_cmd(0x11);
+    st7735s_cmd(0x11); // sleep out
     delay(120);
 
-    st7735s_cmd(0x36);
+    st7735s_cmd(0x36); // set orientation
     st7735s_dat(0x8);
 
-    st7735s_setWindow(0, 0, 160, 80);
-    st7735s_cmd(0x21);
+    st7735s_default();
+    st7735s_cmd(0x21); // inverse colors
 
-    st7735s_cmd(0x26);
+    st7735s_cmd(0x26); // gamma
     st7735s_dat(0x2);
 
-    st7735s_cmd(0x3a);
+    st7735s_cmd(0x3a); // rgb565 color mode
     st7735s_dat(0x05);
 
-    st7735s_cmd(0x29); 
+    st7735s_cmd(0x29); // on
     delay(100);
 }
 
@@ -104,14 +109,12 @@ void st7735s_setCursor(uint8_t x, uint8_t y) {
 }
 
 void st7735s_fill(uint16_t color) {
-    st7735s_setWindow(0, 0, 160, 80);
     st7735s_cmd(0x2c);
     for(uint16_t i = 0; i < 80 * 160; i++)
         st7735s_dat16(color);
 }
 
 void st7735s_fillImage(const uint16_t* img) {
-    st7735s_setWindow(0, 0, 160, 80);
     st7735s_cmd(0x2c);
     for(uint16_t i = 0; i < 80 * 160; i++) st7735s_dat16(img[i]);
 }
@@ -120,16 +123,33 @@ void st7735s_drawPixel(uint8_t x, uint8_t y, uint16_t color) {
     st7735s_setCursor(x, y);
     st7735s_cmd(0x2c);
     st7735s_dat16(color);
+
+    st7735s_default();
+}
+
+void st7735s_drawRect(uint8_t x0, uint8_t y0, uint8_t w, uint8_t h, uint16_t color) {
+    uint16_t size = w * h;
+    st7735s_setWindow(x0, y0, w, h);
+
+    st7735s_cmd(0x2c);
+    for(uint16_t i = 0; i < size; i++) st7735s_dat16(color);
+
+    st7735s_default();
 }
 
 void st7735s_drawFont5x7(const uint8_t* buf, uint8_t x0, uint8_t y0, uint8_t size, uint16_t color) {
-    for(uint8_t x = 0; x < 5; x++) {
-        for(uint8_t y = 0; y < 8; y++) {
-            if(buf[x] & (1 << y)) {
-                for(uint8_t i = 0; i < size; i++) {
-                    for(uint8_t j = 0; j < size; j++)
-                        st7735s_drawPixel(x0 + size * x + i, y0 + size * (7 - y) + j, color);
-                }
+    if(size == 1) {
+        for(uint8_t x = 0; x < 5; x++) {
+            for(uint8_t y = 0; y < 8; y++) {
+                if(buf[x] & (1 << y))
+                    st7735s_drawPixel(x0 + x, y0 + (7 - y), color);
+            }
+        }
+    } else {
+        for(uint8_t x = 0; x < 5; x++) {
+            for(uint8_t y = 0; y < 8; y++) {
+                if(buf[x] & (1 << y))
+                    st7735s_drawRect(x0 + size * x, y0 + size * (7 - y), size, size, color);
             }
         }
     }
