@@ -80,4 +80,39 @@ static inline void hal_uart1_read(char* buf, char sep, bool echo) {
     }
 }
 
+// spi
+static inline void hal_spi1_init() {
+    RCC->APB2ENR |= RCC_APB2ENR_IOPAEN;
+    RCC->APB2ENR |= RCC_APB2ENR_AFIOEN;
+    RCC->APB2ENR |= RCC_APB2ENR_SPI1EN;
+
+    // pa0(dc)
+    GPIOA->CRL &= ~GPIO_CRL_CNF0;
+    GPIOA->CRL |= GPIO_CRL_MODE0; // 50Mhz
+
+    // pa1(cs)
+    GPIOA->CRL &= ~GPIO_CRL_CNF1;
+    GPIOA->CRL |= GPIO_CRL_MODE1; // 50Mhz
+
+    // pa1(rst)
+    GPIOA->CRL &= ~GPIO_CRL_CNF2;
+    GPIOA->CRL |= GPIO_CRL_MODE2; // 50Mhz
+
+    // pa5(scl)
+    GPIOA->CRL &= ~GPIO_CRL_CNF5;
+    GPIOA->CRL |= GPIO_CRL_CNF5_1;
+    GPIOA->CRL |= GPIO_CRL_MODE5; // 50Mhz
+
+    // pa7(mosi)
+    GPIOA->CRL &= ~GPIO_CRL_CNF7;
+    GPIOA->CRL |= GPIO_CRL_CNF7_1;
+    GPIOA->CRL |= GPIO_CRL_MODE7; // 50Mhz
+
+    // spi
+    SPI1->CR1 |= SPI_CR1_BIDIMODE | SPI_CR1_BIDIOE;
+    SPI1->CR1 |= SPI_CR1_SSM | SPI_CR1_SSI | SPI_CR1_MSTR ; // master
+
+    SPI1->CR1 |= SPI_CR1_SPE; // enable spi
+}
+
 #endif // _TINY_HAL
