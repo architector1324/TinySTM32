@@ -13,6 +13,7 @@ Collection:
 | `font5x7.h`  | Ascii and tiny unicode (U+0020..U+303F) 5x7 fonts. |
 | `st7735s.h`  | Driver for 80x160 IPS TFT based on st7735s controller. |
 |  `st7789.h` | Driver for 240x240 IPS TFT based on st7789 controller. |
+| `fixed.h`   | Fast fixed point library. |
 
 Requirements:
 - arm-none-eabi-gcc
