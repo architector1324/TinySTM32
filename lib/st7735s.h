@@ -35,7 +35,10 @@ void st7735s_fillImage(const uint16_t* img);
 void st7735s_drawPixel(uint8_t x, uint8_t y, uint16_t color);
 void st7735s_fillFunc(uint8_t x0, uint8_t y0, uint8_t w, uint8_t h, uint16_t (*color_f)(uint8_t x, uint8_t y));
 void st7735s_drawRect(uint8_t x0, uint8_t y0, uint8_t w, uint8_t h, uint16_t color);
+
 void st7735s_drawSprite(const uint16_t* img, uint8_t x0, uint8_t y0, uint8_t w, uint8_t h);
+void st7735s_drawSpriteWithKey(const uint16_t* img, uint8_t x0, uint8_t y0, uint8_t w, uint8_t h, uint16_t key);
+void st7735s_drawSpriteWithBack(const uint16_t* img, const uint16_t* back, uint8_t x0, uint8_t y0, uint8_t w, uint8_t h, uint16_t key);
 
 void st7735s_drawFont5x7(const uint8_t* buf, uint8_t x0, uint8_t y0, uint8_t size, uint16_t color);
 void st7735s_drawChar(char ch, uint8_t x0, uint8_t y0, uint8_t size, uint16_t color, const uint8_t* ascii_font);
@@ -186,6 +189,37 @@ void st7735s_drawSprite(const uint16_t* img, uint8_t x0, uint8_t y0, uint8_t w, 
     st7735s_cmd(0x2c);
     for(uint16_t i = 0; i < size; i++) st7735s_dat16(img[i]);
 
+    st7735s_default();
+}
+
+void st7735s_drawSpriteWithKey(const uint16_t* img, uint8_t x0, uint8_t y0, uint8_t w, uint8_t h, uint16_t key) {
+    uint8_t max_x = (x0 + w) < 160 ? w : 160 - x0;
+    uint8_t max_y = (y0 + h) < 80 ? h : 80 - y0;
+
+    for(uint8_t x = 0; x < max_x; x++) {
+        for(uint8_t y = 0; y < max_y; y++) {
+            uint16_t color = img[y + x * h];
+            if(color != key)
+                st7735s_drawPixel(x0 + x, y0 + y, color);
+        }
+    }
+}
+
+void st7735s_drawSpriteWithBack(const uint16_t* img, const uint16_t* back, uint8_t x0, uint8_t y0, uint8_t w, uint8_t h, uint16_t key) {
+    st7735s_setWindow(x0, y0, w, h);
+    st7735s_cmd(0x2c);
+
+    uint8_t max_x = (x0 + w) < 160 ? w : 160 - x0;
+    uint8_t max_y = (y0 + h) < 80 ? h : 80 - y0;
+
+    uint16_t i = 0;
+    for(uint8_t x = 0; x < w; x++) {
+        for(uint8_t y = 0; y < h; y++) {
+            if(img[i] != key) st7735s_dat16(img[i]);
+            else st7735s_dat16(back[y0 + y + 80 * (x0 + x)]);
+            i++;
+        }
+    }
     st7735s_default();
 }
 
