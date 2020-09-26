@@ -11,9 +11,11 @@ typedef int16_t fxd_t;
 #define fxd_from_int(x) ((x) << FIXED_PREC)
 #define fxd_to_int(x) ((x) >> FIXED_PREC)
 #define fxd_add(x, y) ((x) + (y))
+#define fxd_sub(x, y) ((x) - (y))
 #define fxd_mul(x, y) (((x) * (y)) >> FIXED_PREC)
 #define fxd_addi(ix, y) (((ix) << FIXED_PREC) + (y))
 #define fxd_muli(ix, y) ((ix) * (y))
+#define fxd_neg(x) (-(x))
 
 const fxd_t _fxd_sin_t[360] = {
 	0, // 0
