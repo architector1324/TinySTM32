@@ -3,6 +3,8 @@
 
 #include <stm32f1xx.h>
 
+#define ST7735S_H 80
+#define ST7735S_W 160
 
 #define ST7735S_DC_L GPIOA->ODR &= ~GPIO_ODR_ODR0
 #define ST7735S_DC_H GPIOA->ODR |= GPIO_ODR_ODR0
@@ -33,7 +35,7 @@ void st7735s_fill(uint16_t color);
 void st7735s_fillImage(const uint16_t* img);
 
 void st7735s_drawPixel(uint8_t x, uint8_t y, uint16_t color);
-void st7735s_fillFunc(uint8_t x0, uint8_t y0, uint8_t w, uint8_t h, uint16_t (*color_f)(uint8_t x, uint8_t y));
+void st7735s_drawFunc(uint8_t x0, uint8_t y0, uint8_t w, uint8_t h, uint16_t (*color_f)(uint8_t x, uint8_t y));
 void st7735s_drawRect(uint8_t x0, uint8_t y0, uint8_t w, uint8_t h, uint16_t color);
 
 void st7735s_drawSprite(const uint16_t* img, uint8_t x0, uint8_t y0, uint8_t w, uint8_t h);
@@ -109,7 +111,7 @@ void st7735s_setCursor(uint8_t x, uint8_t y) {
 }
 
 static inline void st7735s_default() {
-    st7735s_setWindow(0, 0, 160, 80);
+    st7735s_setWindow(0, 0, ST7735S_W, ST7735S_H);
 }
 
 void st7735s_init() {
@@ -145,13 +147,13 @@ void st7735s_init() {
 
 void st7735s_fill(uint16_t color) {
     st7735s_cmd(0x2c);
-    for(uint16_t i = 0; i < 80 * 160; i++)
+    for(uint16_t i = 0; i < ST7735S_H * ST7735S_W; i++)
         st7735s_dat16(color);
 }
 
 void st7735s_fillImage(const uint16_t* img) {
     st7735s_cmd(0x2c);
-    for(uint16_t i = 0; i < 80 * 160; i++) st7735s_dat16(img[i]);
+    for(uint16_t i = 0; i < ST7735S_H * ST7735S_W; i++) st7735s_dat16(img[i]);
 }
 
 void st7735s_drawPixel(uint8_t x, uint8_t y, uint16_t color) {
@@ -162,7 +164,7 @@ void st7735s_drawPixel(uint8_t x, uint8_t y, uint16_t color) {
     st7735s_default();
 }
 
-void st7735s_fillFunc(uint8_t x0, uint8_t y0, uint8_t w, uint8_t h, uint16_t (*color_f)(uint8_t x, uint8_t y)) {
+void st7735s_drawFunc(uint8_t x0, uint8_t y0, uint8_t w, uint8_t h, uint16_t (*color_f)(uint8_t x, uint8_t y)) {
     st7735s_setWindow(x0, y0, w, h);
     st7735s_cmd(0x2c);
 
@@ -193,8 +195,10 @@ void st7735s_drawSprite(const uint16_t* img, uint8_t x0, uint8_t y0, uint8_t w, 
 }
 
 void st7735s_drawSpriteWithKey(const uint16_t* img, uint8_t x0, uint8_t y0, uint8_t w, uint8_t h, uint16_t key) {
-    uint8_t max_x = (x0 + w) < 160 ? w : 160 - x0;
-    uint8_t max_y = (y0 + h) < 80 ? h : 80 - y0;
+    if(x0 >= ST7735S_W || y0 >= ST7735S_H) return;
+
+    uint8_t max_x = (x0 + w) <= ST7735S_W ? w : (ST7735S_W - x0);
+    uint8_t max_y = (y0 + h) <= ST7735S_H ? h : (ST7735S_H - y0);
 
     for(uint8_t x = 0; x < max_x; x++) {
         for(uint8_t y = 0; y < max_y; y++) {
@@ -206,18 +210,19 @@ void st7735s_drawSpriteWithKey(const uint16_t* img, uint8_t x0, uint8_t y0, uint
 }
 
 void st7735s_drawSpriteWithBack(const uint16_t* img, const uint16_t* back, uint8_t x0, uint8_t y0, uint8_t w, uint8_t h, uint16_t key) {
-    st7735s_setWindow(x0, y0, w, h);
+    if(x0 >= ST7735S_W || y0 >= ST7735S_H) return;
+
+    uint8_t max_x = (x0 + w) <= ST7735S_W ? w : (ST7735S_W - x0);
+    uint8_t max_y = (y0 + h) <= ST7735S_H ? h : (ST7735S_H - y0);
+
+    st7735s_setWindow(x0, y0, max_x, max_y);
     st7735s_cmd(0x2c);
 
-    uint8_t max_x = (x0 + w) < 160 ? w : 160 - x0;
-    uint8_t max_y = (y0 + h) < 80 ? h : 80 - y0;
-
-    uint16_t i = 0;
-    for(uint8_t x = 0; x < w; x++) {
-        for(uint8_t y = 0; y < h; y++) {
-            if(img[i] != key) st7735s_dat16(img[i]);
-            else st7735s_dat16(back[y0 + y + 80 * (x0 + x)]);
-            i++;
+    for(uint8_t x = 0; x < max_x; x++) {
+        for(uint8_t y = 0; y < max_y; y++) {
+            uint16_t color = img[y + h * x];
+            if(color != key) st7735s_dat16(color);
+            else st7735s_dat16(back[y0 + y + ST7735S_H * (x0 + x)]);
         }
     }
     st7735s_default();
