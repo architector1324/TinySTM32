@@ -51,7 +51,9 @@ void st7735s_drawText(const char* text, uint8_t x, uint8_t y, uint8_t size, uint
 //       IMPLEMENTATION       //
 ////////////////////////////////
 static inline void delay(uint32_t ms) {
-    for(uint32_t i = 0; i < ms * 2000; i++) __NOP();
+    uint32_t pre = SystemCoreClock / 1000;
+    uint32_t start = DWT->CYCCNT;
+    while((DWT->CYCCNT - start) < ms * pre);
 }
 
 void st7735s_cmd(uint8_t cmd) {
@@ -254,8 +256,10 @@ void st7735s_drawText(const char* text, uint8_t x, uint8_t y, uint8_t size, uint
     uint8_t i = 0;
     uint8_t step = (size * 6);
 
-    while(text[i])
-        st7735s_drawChar(text[i], x + (i++) * step, y, size, color, ascii_font);
+    while(text[i]) {
+        st7735s_drawChar(text[i], x + i * step, y, size, color, ascii_font);
+        i++;
+    }
 }
 
 #endif

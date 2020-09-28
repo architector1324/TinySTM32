@@ -9,7 +9,11 @@
 
 // misc
 static inline void hal_delay(uint32_t ms) {
-    for(uint32_t i = 0; i < ms * 2000; i++) __NOP();
+    if(!(DWT->CTRL & DWT_CTRL_CYCCNTENA_Msk)) DWT->CTRL = DWT_CTRL_CYCCNTENA_Msk;
+
+    uint32_t pre = SystemCoreClock / 1000;
+    uint32_t start = DWT->CYCCNT;
+    while((DWT->CYCCNT - start) < ms * pre);
 }
 
 // usart
