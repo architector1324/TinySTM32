@@ -19,7 +19,9 @@ static inline void hal_delay(uint32_t ms) {
 // gpio
 typedef enum {
     HAL_GPIO_IN,
-    HAL_GPIO_OUT
+    HAL_GPIO_OUT,
+    HAL_GPIO_AIN,
+    HAL_GPIO_AOUT
 } hal_gpio_type;
 
 typedef enum {
@@ -83,9 +85,11 @@ static inline bool hal_gpio_setup(hal_gpio_port port, uint8_t pin, hal_gpio_cfg 
     uint32_t mode_offs = pin < 8 ? (pin << 2) : ((pin - 8) << 2);
     uint32_t type_offs = mode_offs + 2;
 
-    if(cfg.type == HAL_GPIO_OUT) {
+    if(cfg.type == HAL_GPIO_OUT || cfg.type == HAL_GPIO_AOUT) {
         *CR &= ~(1 << type_offs);
-        *CR &= ~(1 << (type_offs + 1));
+
+        if(cfg.type == HAL_GPIO_OUT) *CR &= ~(1 << (type_offs + 1));
+        else *CR |= 1 << (type_offs + 1);
 
         switch (cfg.mode) {
         case HAL_GPIO_10MHz:
@@ -102,9 +106,12 @@ static inline bool hal_gpio_setup(hal_gpio_port port, uint8_t pin, hal_gpio_cfg 
         default:
             return false;
         }
-    } else if(cfg.type == HAL_GPIO_IN) {
+    } else if(cfg.type == HAL_GPIO_IN || cfg.type == HAL_GPIO_AIN) {
         *CR &= ~(1 << type_offs);
-        *CR |= 1 << (type_offs + 1);
+
+        if(cfg.type == HAL_GPIO_IN) *CR |= 1 << (type_offs + 1);
+        else *CR &= ~(1 << (type_offs + 1));
+
         *CR &= ~(3 << mode_offs);
     }
 
