@@ -1,20 +1,18 @@
 #include <stm32f1xx.h>
-
+#include "lib/hal.h"
 
 void SysTick_Handler() {
-    GPIOC->ODR ^= GPIO_ODR_ODR13;
+    hal_gpio_inv(HAL_GPIOC, 13);
 }
 
 int main() {
     SystemInit();
     SystemCoreClockUpdate();
 
-    RCC->APB2ENR |= RCC_APB2ENR_IOPCEN;
-    GPIOC->CRH |= GPIO_CRH_MODE13_1; // 2Mhz
-    GPIOC->CRH &= ~GPIO_CRH_CNF13; // push-pull
+    hal_gpio_en(HAL_GPIOC);
+    hal_gpio_setup(HAL_GPIOC, 13, hal_gpio_cfg_new(HAL_GPIO_OUT, HAL_GPIO_2MHz));
 
     SysTick_Config(SystemCoreClock); // 1Hz
-
     while(1);
 
     return 0;

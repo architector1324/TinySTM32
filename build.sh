@@ -2,7 +2,7 @@
 
 mkdir -p out
 
-arm-none-eabi-gcc -O3 -Wall \
+arm-none-eabi-gcc -O3 -Wall -Werror \
                   -g -gdwarf-2 \
                   -fdata-sections \
                   -ffunction-sections  \
