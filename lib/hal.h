@@ -12,6 +12,7 @@
 ////////////////////////////////
 
 // misc
+typedef void (*hal_irq)();
 static inline void hal_delay(uint32_t ms);
 
 // gpio
@@ -102,7 +103,15 @@ typedef struct {
     uint32_t period;
     uint32_t duty_cycle;
     hal_timer_pwm pwm;
+    hal_irq irq;
 } hal_timer_cfg;
+
+static hal_irq _hal_timer_irq[4][4] = {
+    {NULL, NULL, NULL, NULL},
+    {NULL, NULL, NULL, NULL},
+    {NULL, NULL, NULL, NULL},
+    {NULL, NULL, NULL, NULL}
+};
 
 static inline hal_timer_cfg hal_timer_cfg_simple(uint32_t freq); // max freq = (SystemCoreClock / 1000) Hz
 static inline hal_timer_cfg hal_timer_cfg_new(uint32_t prescaler, uint32_t period, uint32_t duty_cycle);
@@ -375,7 +384,8 @@ static inline hal_timer_cfg hal_timer_cfg_simple(uint32_t freq) {
         .prescaler = (SystemCoreClock / 1000) / freq,
         .period = 1000,
         .duty_cycle = 1000,
-        .pwm = HAL_NONE_PWM
+        .pwm = HAL_NONE_PWM,
+        .irq = NULL
     };
 }
 
@@ -383,7 +393,9 @@ static inline hal_timer_cfg hal_timer_cfg_new(uint32_t prescaler, uint32_t perio
     return (hal_timer_cfg) {
         .prescaler = prescaler,
         .period = period,
-        .duty_cycle = duty_cycle
+        .duty_cycle = duty_cycle,
+        .pwm = HAL_NONE_PWM,
+        .irq = NULL
     };
 }
 
@@ -407,6 +419,42 @@ void _hal_set_cmsis_timer_pwm(TIM_TypeDef* tim, hal_timer_pwm pwm) {
         }
 }
 
+IRQn_Type _hal_get_cmsis_timer_irq(hal_timer tim) {
+    switch(tim) {
+        case HAL_TIMER1:
+            return TIM1_CC_IRQn;
+        case HAL_TIMER2:
+            return TIM2_IRQn;
+        case HAL_TIMER3:
+            return TIM3_IRQn;
+        case HAL_TIMER4:
+            return TIM4_IRQn;
+        default:
+            // unreachable
+            return 0;
+    }
+}
+
+void _hal_set_cmsis_timer_irq(hal_timer tim, hal_irq hlr) {
+    switch(tim) {
+        case HAL_TIMER1:
+            _hal_timer_irq[0][0] = hlr;
+            return;
+        case HAL_TIMER2:
+            _hal_timer_irq[1][0] = hlr;
+            return;
+        case HAL_TIMER3:
+            _hal_timer_irq[2][0] = hlr;
+            return;
+        case HAL_TIMER4:
+            _hal_timer_irq[3][0] = hlr;
+            return;
+        default:
+            // unreachable
+            return;
+    }
+}
+
 static inline void hal_timer_setup(hal_timer tim, hal_timer_cfg cfg) {
     TIM_TypeDef* cmsis_timer = _hal_get_cmsis_timer(tim);
 
@@ -419,8 +467,11 @@ static inline void hal_timer_setup(hal_timer tim, hal_timer_cfg cfg) {
         cmsis_timer->CCER |= cfg.pwm; // enable channel
     }
 
-    // cmsis_timer->DIER |= TIM_DIER_UIE;
-    // NVIC_EnableIRQ(TIM2_IRQn);
+    if(cfg.irq != NULL) {
+        cmsis_timer->DIER |= TIM_DIER_UIE;
+        NVIC_EnableIRQ(_hal_get_cmsis_timer_irq(tim));
+        _hal_set_cmsis_timer_irq(tim, cfg.irq);
+    }
 }
 
 static inline void hal_timer_start(hal_timer tim) {
@@ -431,6 +482,26 @@ static inline void hal_timer_start(hal_timer tim) {
 static inline void hal_timer_stop(hal_timer tim) {
     TIM_TypeDef* cmsis_timer = _hal_get_cmsis_timer(tim);
     cmsis_timer->CR1 &= ~TIM_CR1_CEN;
+}
+
+void TIM1_CC_IRQHandler() {
+    TIM1->SR &= ~TIM_SR_UIF;
+    _hal_timer_irq[0][0]();
+}
+
+void TIM2_IRQHandler() {
+    TIM2->SR &= ~TIM_SR_UIF;
+    _hal_timer_irq[1][0]();
+}
+
+void TIM3_IRQHandler() {
+    TIM3->SR &= ~TIM_SR_UIF;
+    _hal_timer_irq[2][0]();
+}
+
+void TIM4_IRQHandler() {
+    TIM4->SR &= ~TIM_SR_UIF;
+    _hal_timer_irq[3][0]();
 }
 
 // adc
