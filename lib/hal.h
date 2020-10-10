@@ -8,6 +8,12 @@
 
 
 ////////////////////////////////
+//          SETTINGS          //
+////////////////////////////////
+#define UART_BUFFER 256
+
+
+////////////////////////////////
 //         DEFINITION         //
 ////////////////////////////////
 
@@ -45,33 +51,42 @@ typedef enum {
     HAL_GPIOA = RCC_APB2ENR_IOPAEN,
     HAL_GPIOB = RCC_APB2ENR_IOPBEN,
     HAL_GPIOC = RCC_APB2ENR_IOPCEN
-} hal_gpio_port;
+} hal_gpio;
 
 static inline hal_gpio_cfg hal_gpio_cfg_new(hal_gpio_type type, hal_gpio_mode mode);
-static inline void hal_use_gpio(hal_gpio_port port);
-static inline void hal_not_use_gpio(hal_gpio_port port);
+
+static inline void hal_use_gpio(hal_gpio port);
+static inline void hal_not_use_gpio(hal_gpio port);
 static inline void hal_use_afio();
-static inline bool hal_gpio_setup(hal_gpio_port port, uint8_t pin, hal_gpio_cfg cfg);
-static inline bool hal_gpio_w(hal_gpio_port port, uint8_t pin, hal_gpio_val val);
-static inline hal_gpio_val hal_gpio_r(hal_gpio_port port, uint8_t pin);
-static inline bool hal_gpio_inv(hal_gpio_port port, uint8_t pin);
+static inline bool hal_gpio_setup(hal_gpio port, uint8_t pin, hal_gpio_cfg cfg);
+static inline bool hal_gpio_w(hal_gpio port, uint8_t pin, hal_gpio_val val);
+static inline hal_gpio_val hal_gpio_r(hal_gpio port, uint8_t pin);
+static inline bool hal_gpio_inv(hal_gpio port, uint8_t pin);
 
 // uart
 typedef enum {
-    HAL_UART_RE = 1 << 0,
-    HAL_UART_TE = 1 << 1
-} hal_uart_conf;
+    HAL_UART1 = RCC_APB2ENR_USART1EN,
+    HAL_UART2 = RCC_APB1ENR_USART2EN,
+    HAL_UART3 = RCC_APB1ENR_USART3EN
+} hal_uart;
 
-// typedef struct {
-//     hal_gpio 
-// } hal_uart;
+typedef struct {
+    bool rx;
+    bool tx;
+    uint32_t baud;
+} hal_uart_cfg;
 
-static inline void hal_uart1_init(uint32_t baud, hal_uart_conf conf);
-static inline void hal_uart1_printc(char ch);
-static void hal_uart1_print(const char* s);
-static inline void hal_uart1_printf(const char* fmt, ...);
-static inline char hal_uart1_readc();
-static inline void hal_uart1_read(char* buf, char sep, bool echo);
+static inline hal_uart_cfg hal_uart_cfg_new(bool rx, bool tx, uint32_t baud);
+
+static inline void hal_use_uart(hal_uart uart);
+static inline void hal_uart_setup(hal_uart uart, hal_uart_cfg cfg);
+static inline void hal_uart_on(hal_uart uart);
+
+static inline void hal_uart_printc(char ch, hal_uart uart);
+static void hal_uart_print(const char* s, hal_uart uart);
+static void hal_uart_printf(hal_uart uart, const char* fmt, ...);
+static inline char hal_uart_readc(hal_uart uart);
+static inline void hal_uart_read(char* buf, char sep, bool echo, hal_uart uart);
 
 // spi
 typedef enum {
@@ -118,8 +133,9 @@ static inline hal_timer_cfg hal_timer_cfg_new(uint32_t prescaler, uint32_t perio
 
 static inline void hal_use_timer(hal_timer tim);
 static inline void hal_timer_setup(hal_timer tim, hal_timer_cfg cfg);
-static inline void hal_timer_start(hal_timer tim);
-static inline void hal_timer_stop(hal_timer tim);
+static inline void hal_timer_set_dc(hal_timer tim, uint16_t duty_cycle);
+static inline void hal_timer_on(hal_timer tim);
+static inline void hal_timer_off(hal_timer tim);
 
 // adc
 typedef enum {
@@ -127,8 +143,32 @@ typedef enum {
     HAL_ADC2 = RCC_APB2ENR_ADC2EN
 } hal_adc;
 
-static inline void hal_use_adc(hal_adc adc);
+typedef struct {
+    uint8_t ch;
+    hal_irq irq;
+} hal_adc_cfg;
 
+static hal_irq _hal_adc_irq[2][16] = {
+    {
+        NULL, NULL, NULL, NULL,
+        NULL, NULL, NULL, NULL,
+        NULL, NULL, NULL, NULL,
+        NULL, NULL, NULL, NULL,
+    },
+    {
+        NULL, NULL, NULL, NULL,
+        NULL, NULL, NULL, NULL,
+        NULL, NULL, NULL, NULL,
+        NULL, NULL, NULL, NULL,
+    }
+};
+
+static inline hal_adc_cfg hal_adc_cfg_new(uint8_t ch);
+
+static inline void hal_use_adc(hal_adc adc);
+static inline void hal_adc_setup(hal_adc adc, hal_adc_cfg cfg);
+static inline uint16_t hal_adc_r(hal_adc adc);
+static inline void hal_adc_on(hal_adc adc);
 
 ////////////////////////////////
 //       IMPLEMENTATION       //
@@ -151,7 +191,7 @@ static inline hal_gpio_cfg hal_gpio_cfg_new(hal_gpio_type type, hal_gpio_mode mo
     };
 }
 
-static inline void hal_use_gpio(hal_gpio_port port) {
+static inline void hal_use_gpio(hal_gpio port) {
     RCC->APB2ENR |= port;
 }
 
@@ -159,11 +199,11 @@ static inline void hal_use_afio() {
     RCC->APB2ENR |= RCC_APB2ENR_AFIOEN;
 }
 
-static inline void hal_not_use_gpio(hal_gpio_port port) {
+static inline void hal_not_use_gpio(hal_gpio port) {
     RCC->APB2ENR &= ~port;
 }
 
-GPIO_TypeDef* _hal_get_cmsis_port(hal_gpio_port port) {
+GPIO_TypeDef* _hal_get_cmsis_port(hal_gpio port) {
     switch(port) {
         case HAL_GPIOA:
             return GPIOA;
@@ -177,7 +217,7 @@ GPIO_TypeDef* _hal_get_cmsis_port(hal_gpio_port port) {
     }
 }
 
-static inline bool hal_gpio_setup(hal_gpio_port port, uint8_t pin, hal_gpio_cfg cfg) {
+static inline bool hal_gpio_setup(hal_gpio port, uint8_t pin, hal_gpio_cfg cfg) {
     if(pin > 15) return false;
 
     GPIO_TypeDef* cmsis_port = _hal_get_cmsis_port(port);
@@ -218,7 +258,7 @@ static inline bool hal_gpio_setup(hal_gpio_port port, uint8_t pin, hal_gpio_cfg 
     return false;
 }
 
-static inline bool hal_gpio_w(hal_gpio_port port, uint8_t pin, hal_gpio_val val) {
+static inline bool hal_gpio_w(hal_gpio port, uint8_t pin, hal_gpio_val val) {
     if(pin > 15) return false;
 
     GPIO_TypeDef* cmsis_port = _hal_get_cmsis_port(port);
@@ -230,7 +270,7 @@ static inline bool hal_gpio_w(hal_gpio_port port, uint8_t pin, hal_gpio_val val)
     return true;
 }
 
-static inline hal_gpio_val hal_gpio_r(hal_gpio_port port, uint8_t pin) {
+static inline hal_gpio_val hal_gpio_r(hal_gpio port, uint8_t pin) {
     if(pin > 15) return HAL_GPIO_UNDEF;
 
     GPIO_TypeDef* cmsis_port = _hal_get_cmsis_port(port);
@@ -243,7 +283,7 @@ static inline hal_gpio_val hal_gpio_r(hal_gpio_port port, uint8_t pin) {
     return HAL_GPIO_LOW;
 }
 
-static inline bool hal_gpio_inv(hal_gpio_port port, uint8_t pin) {
+static inline bool hal_gpio_inv(hal_gpio port, uint8_t pin) {
     if(pin > 15) return false;
 
     GPIO_TypeDef* cmsis_port = _hal_get_cmsis_port(port);
@@ -253,64 +293,127 @@ static inline bool hal_gpio_inv(hal_gpio_port port, uint8_t pin) {
 }
 
 // uart
-static inline void hal_uart1_init(uint32_t baud, hal_uart_conf conf) {
-    RCC->APB2ENR |= RCC_APB2ENR_IOPAEN | RCC_APB2ENR_AFIOEN | RCC_APB2ENR_USART1EN;
-
-    // receive
-    if(conf & HAL_UART_RE) {
-        GPIOA->CRH &= (~GPIO_CRH_MODE10) & (~GPIO_CRH_CNF10_0);
-        GPIOA->CRH |= GPIO_CRH_CNF10_1;
-        GPIOA->ODR |= GPIO_ODR_ODR10;
-
-        USART1->CR1 |= USART_CR1_RE;
-    }
-
-    // transmit
-    if(conf & HAL_UART_TE) {
-        GPIOA->CRH &= ~GPIO_CRH_CNF9_0;
-        GPIOA->CRH |= GPIO_CRH_CNF9_1;
-        GPIOA->CRH |= GPIO_CRH_MODE9; // 50Mhz
-
-        USART1->CR1 |= USART_CR1_TE;
-    }
-
-    USART1->BRR = SystemCoreClock / baud;
-    USART1->CR1 |= USART_CR1_UE;
+static inline void hal_use_uart(hal_uart uart) {
+    if(uart == HAL_UART1) RCC->APB2ENR |= uart;
+    else RCC->APB1ENR |= uart;
 }
 
-static inline void hal_uart1_printc(char ch) {
-    while(!(USART1->SR & USART_SR_TC));
-    USART1->DR = ch;
+static inline hal_uart_cfg hal_uart_cfg_new(bool rx, bool tx, uint32_t baud) {
+    return (hal_uart_cfg) {
+        .rx = rx,
+        .tx = tx,
+        .baud = baud
+    };
 }
 
-static void hal_uart1_print(const char* s) {
+USART_TypeDef* _hal_get_cmsis_uart(hal_uart uart) {
+    switch(uart) {
+        case HAL_UART1:
+            return USART1;
+        case HAL_UART2:
+            return USART2;
+        case HAL_UART3:
+            return USART3;
+        default:
+            // unreachable
+            return NULL;
+    }
+}
+
+void _hal_set_cmsis_uart_rx_gpio(hal_uart uart) {
+    hal_gpio_cfg rx = hal_gpio_cfg_new(HAL_GPIO_IN, HAL_GPIO_INMODE);
+
+    switch(uart) {
+        case HAL_UART1:
+            hal_gpio_setup(HAL_GPIOA, 10, rx);
+            return;
+        case HAL_UART2:
+            hal_gpio_setup(HAL_GPIOA, 3, rx);
+            return;
+        case HAL_UART3:
+            hal_gpio_setup(HAL_GPIOB, 11, rx);
+            return;
+        default:
+            // unreachable
+            return;
+    }
+}
+
+void _hal_set_cmsis_uart_tx_gpio(hal_uart uart) {
+    hal_gpio_cfg tx = hal_gpio_cfg_new(HAL_GPIO_AOUT, HAL_GPIO_50MHz);
+
+    switch(uart) {
+        case HAL_UART1:
+            hal_gpio_setup(HAL_GPIOA, 9, tx);
+            return;
+        case HAL_UART2:
+            hal_gpio_setup(HAL_GPIOA, 2, tx);
+            return;
+        case HAL_UART3:
+            hal_gpio_setup(HAL_GPIOB, 10, tx);
+            return;
+        default:
+            // unreachable
+            return;
+    }
+}
+
+static inline void hal_uart_setup(hal_uart uart, hal_uart_cfg cfg) {
+    USART_TypeDef* cmsis_uart = _hal_get_cmsis_uart(uart);
+
+    if(cfg.rx) {
+        _hal_set_cmsis_uart_rx_gpio(uart);
+        cmsis_uart->CR1 |= USART_CR1_RE;
+    }
+
+    if(cfg.tx) {
+        _hal_set_cmsis_uart_tx_gpio(uart);
+        cmsis_uart->CR1 |= USART_CR1_TE;
+    }
+
+    cmsis_uart->BRR = SystemCoreClock / cfg.baud;
+}
+
+static inline void hal_uart_on(hal_uart uart) {
+    USART_TypeDef* cmsis_uart = _hal_get_cmsis_uart(uart);
+    cmsis_uart->CR1 |= USART_CR1_UE;
+}
+
+static inline void hal_uart_printc(char ch, hal_uart uart){
+    USART_TypeDef* cmsis_uart = _hal_get_cmsis_uart(uart);
+    while(!(cmsis_uart->SR & USART_SR_TC));
+    cmsis_uart->DR = ch;
+}
+
+static void hal_uart_print(const char* s, hal_uart uart){
     while(*s)
-        hal_uart1_printc(*(s++));
+        hal_uart_printc(*(s++), uart);
 }
 
-static inline void hal_uart1_printf(const char* fmt, ...) {
+static void hal_uart_printf(hal_uart uart, const char* fmt, ...) {
     va_list args;
-    static char buf[256] = {0};
+    static char buf[UART_BUFFER] = {0};
 
-    va_start(args, fmt);
+    va_start(args, uart);
     vsprintf(buf, fmt, args);
     va_end(args);
 
-    hal_uart1_print(buf);
+    hal_uart_print(buf, uart);
 }
 
-static inline char hal_uart1_readc() {
-    while(!(USART1->SR & USART_SR_RXNE));
-    return USART1->DR;
+static inline char hal_uart_readc(hal_uart uart) {
+    USART_TypeDef* cmsis_uart = _hal_get_cmsis_uart(uart);
+    while(!(cmsis_uart->SR & USART_SR_RXNE));
+    return cmsis_uart->DR;
 }
 
-static inline void hal_uart1_read(char* buf, char sep, bool echo) {
+static inline void hal_uart_read(char* buf, char sep, bool echo, hal_uart uart) {
     uint32_t pos = 0;
     char last = 0;
 
     while(last != sep) {
-        last = hal_uart1_readc();
-        if(echo) hal_uart1_printc(last);
+        last = hal_uart_readc(uart);
+        if(echo) hal_uart_printc(last, uart);
         buf[pos++] = last;
     }
 }
@@ -474,12 +577,17 @@ static inline void hal_timer_setup(hal_timer tim, hal_timer_cfg cfg) {
     }
 }
 
-static inline void hal_timer_start(hal_timer tim) {
+static inline void hal_timer_set_dc(hal_timer tim, uint16_t duty_cycle) {
+    TIM_TypeDef* cmsis_timer = _hal_get_cmsis_timer(tim);
+    cmsis_timer->CCR2 = duty_cycle;
+}
+
+static inline void hal_timer_on(hal_timer tim) {
     TIM_TypeDef* cmsis_timer = _hal_get_cmsis_timer(tim);
     cmsis_timer->CR1 |= TIM_CR1_CEN;
 }
 
-static inline void hal_timer_stop(hal_timer tim) {
+static inline void hal_timer_off(hal_timer tim) {
     TIM_TypeDef* cmsis_timer = _hal_get_cmsis_timer(tim);
     cmsis_timer->CR1 &= ~TIM_CR1_CEN;
 }
@@ -507,6 +615,100 @@ void TIM4_IRQHandler() {
 // adc
 static inline void hal_use_adc(hal_adc adc) {
     RCC->APB2ENR |= adc;
+}
+
+ADC_TypeDef* _hal_get_cmsis_adc(hal_adc adc) {
+    switch(adc) {
+        case HAL_ADC1:
+            return ADC1;
+        case HAL_ADC2:
+            return ADC2;
+        default:
+            // unreachable
+            return NULL;
+    }
+}
+
+void _hal_set_cmsis_adc_ch(ADC_TypeDef* adc, uint8_t ch) {
+    size_t sq_pos = 5 * (ch % 6);
+    size_t smp_pos = 3 * (ch % 10);
+
+    // enable channel
+    if(ch < 6) {
+        adc->SQR3 &= ~(0x1f << sq_pos);
+    } else if(ch < 12) {
+        adc->SQR2 &= ~(0x1f << sq_pos);
+    } else if(ch < 16) {
+        adc->SQR1 &= ~(0x1f << sq_pos);
+    }
+
+    // sampling
+    if(ch < 10) {
+        adc->SMPR2 |= 0x7 << smp_pos; // sampling 239.5 cycles
+    } else if(ch < 18) {
+        adc->SMPR1 |= 0x7 << smp_pos;
+    }
+}
+
+static inline hal_adc_cfg hal_adc_cfg_new(uint8_t ch) {
+    return (hal_adc_cfg) {
+        .ch = ch
+    };
+}
+
+void _hal_set_cmsis_adc_irq(hal_adc adc, hal_irq hlr) {
+    switch(adc) {
+        case HAL_ADC1:
+            _hal_adc_irq[0][0] = hlr;
+            return;
+        case HAL_ADC2:
+            _hal_adc_irq[1][0] = hlr;
+            return;
+        default:
+            // unreachable
+            return;
+    }
+}
+
+static inline void hal_adc_setup(hal_adc adc, hal_adc_cfg cfg) {
+    ADC_TypeDef* cmsis_adc = _hal_get_cmsis_adc(adc);
+
+    cmsis_adc->CR2 |= ADC_CR2_CAL; // calibration
+    while(!(cmsis_adc->CR2 & ADC_CR2_CAL));
+
+    cmsis_adc->CR2 |= ADC_CR2_CONT; // continious conv
+    cmsis_adc->CR2 |= ADC_CR2_EXTSEL; // conv by flag SWSTART
+    cmsis_adc->CR2 |= ADC_CR2_EXTTRIG; // conv by EXTI
+
+    _hal_set_cmsis_adc_ch(cmsis_adc, cfg.ch);
+
+    if(cfg.irq != NULL) {
+        cmsis_adc->CR1 |= ADC_CR1_EOCIE; // enable interrupt on EOC
+        NVIC_EnableIRQ(ADC1_2_IRQn);
+        _hal_set_cmsis_adc_irq(adc, cfg.irq);
+    }
+}
+
+static inline uint16_t hal_adc_r(hal_adc adc) {
+    ADC_TypeDef* cmsis_adc = _hal_get_cmsis_adc(adc);
+    while(!(cmsis_adc->SR & ADC_SR_EOC));
+    return cmsis_adc->DR;
+}
+
+static inline void hal_adc_on(hal_adc adc) {
+    ADC_TypeDef* cmsis_adc = _hal_get_cmsis_adc(adc);
+    cmsis_adc->CR2 |= ADC_CR2_ADON;
+    cmsis_adc->CR2 |= ADC_CR2_SWSTART;
+}
+
+void ADC1_2_IRQHandler() {
+    if(ADC1->SR & ADC_SR_EOC) {
+        _hal_adc_irq[0][0]();
+        ADC1->SR &= ~ADC_SR_EOC;
+    } else if (ADC2->SR & ADC_SR_EOC) {
+        _hal_adc_irq[1][0]();
+        ADC2->SR &= ~ADC_SR_EOC;
+    }
 }
 
 #endif // _TINY_HAL
