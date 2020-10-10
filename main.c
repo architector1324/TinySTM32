@@ -1,7 +1,9 @@
 #include <stm32f1xx.h>
 #include "lib/hal.h"
 
-void SysTick_Handler() {
+
+void TIM2_IRQHandler() {
+    TIM2->SR &= ~TIM_SR_UIF;
     hal_gpio_inv(HAL_GPIOC, 13);
 }
 
@@ -9,10 +11,19 @@ int main() {
     SystemInit();
     SystemCoreClockUpdate();
 
-    hal_gpio_en(HAL_GPIOC);
-    hal_gpio_setup(HAL_GPIOC, 13, hal_gpio_cfg_new(HAL_GPIO_OUT, HAL_GPIO_2MHz));
+    hal_use_gpio(HAL_GPIOC);
+    hal_use_timer(HAL_TIMER2);
 
-    SysTick_Config(SystemCoreClock); // 1Hz
+    hal_gpio_cfg pin = hal_gpio_cfg_new(HAL_GPIO_OUT, HAL_GPIO_2MHz);
+    hal_timer_cfg tim = hal_timer_cfg_simple(1); // 1Hz
+
+    hal_gpio_setup(HAL_GPIOC, 13, pin);
+    hal_timer_setup(HAL_TIMER2, tim);
+
+    TIM2->DIER |= TIM_DIER_UIE;
+    NVIC_EnableIRQ(TIM2_IRQn);
+
+    hal_timer_start(HAL_TIMER2);
     while(1);
 
     return 0;
