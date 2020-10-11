@@ -53,6 +53,12 @@ typedef enum {
     HAL_GPIOC = RCC_APB2ENR_IOPCEN
 } hal_gpio;
 
+typedef struct {
+    hal_gpio port;
+    uint8_t pin;
+} hal_gpio_pin;
+
+static inline hal_gpio_pin hal_gpio_pin_new(hal_gpio port, uint8_t pin);
 static inline hal_gpio_cfg hal_gpio_cfg_new(hal_gpio_type type, hal_gpio_mode mode);
 
 static inline void hal_use_gpio(hal_gpio port);
@@ -192,6 +198,13 @@ static inline void hal_delay(uint32_t ms) {
 }
 
 // gpio
+static inline hal_gpio_pin hal_gpio_pin_new(hal_gpio port, uint8_t pin) {
+    return (hal_gpio_pin) {
+        .port = port,
+        .pin = pin
+    };
+}
+
 static inline hal_gpio_cfg hal_gpio_cfg_new(hal_gpio_type type, hal_gpio_mode mode) {
     return (hal_gpio_cfg) {
         .type = type,
