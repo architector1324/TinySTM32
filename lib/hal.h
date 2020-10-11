@@ -81,6 +81,8 @@ static inline hal_uart_cfg hal_uart_cfg_new(bool rx, bool tx, uint32_t baud);
 static inline void hal_use_uart(hal_uart uart);
 static inline void hal_uart_setup(hal_uart uart, hal_uart_cfg cfg);
 static inline void hal_uart_on(hal_uart uart);
+static inline void hal_uart_w(uint8_t val, hal_uart uart);
+static inline uint8_t hal_uart_r(hal_uart uart);
 
 static inline void hal_uart_printc(char ch, hal_uart uart);
 static void hal_uart_print(const char* s, hal_uart uart);
@@ -95,7 +97,13 @@ typedef enum {
 } hal_spi;
 
 static inline void hal_use_spi(hal_spi spi);
-static inline void hal_spi_init(hal_spi spi);
+static inline void hal_spi_setup(hal_spi spi);
+static inline void hal_spi_on(hal_spi spi);
+static inline void hal_spi_w(uint8_t val, hal_spi spi);
+static inline uint8_t hal_spi_r(hal_spi spi);
+static inline void hal_spi_w16(uint16_t val, hal_spi spi);
+static inline uint16_t hal_spi_r16(hal_spi spi);
+
 
 // timer
 typedef enum {
@@ -379,10 +387,20 @@ static inline void hal_uart_on(hal_uart uart) {
     cmsis_uart->CR1 |= USART_CR1_UE;
 }
 
-static inline void hal_uart_printc(char ch, hal_uart uart){
+static inline void hal_uart_w(uint8_t val, hal_uart uart) {
     USART_TypeDef* cmsis_uart = _hal_get_cmsis_uart(uart);
     while(!(cmsis_uart->SR & USART_SR_TC));
-    cmsis_uart->DR = ch;
+    cmsis_uart->DR = val;
+}
+
+static inline uint8_t hal_uart_r(hal_uart uart) {
+    USART_TypeDef* cmsis_uart = _hal_get_cmsis_uart(uart);
+    while(!(cmsis_uart->SR & USART_SR_RXNE));
+    return cmsis_uart->DR;
+}
+
+static inline void hal_uart_printc(char ch, hal_uart uart){
+    hal_uart_w((uint8_t)ch, uart);
 }
 
 static void hal_uart_print(const char* s, hal_uart uart){
@@ -402,9 +420,7 @@ static void hal_uart_printf(hal_uart uart, const char* fmt, ...) {
 }
 
 static inline char hal_uart_readc(hal_uart uart) {
-    USART_TypeDef* cmsis_uart = _hal_get_cmsis_uart(uart);
-    while(!(cmsis_uart->SR & USART_SR_RXNE));
-    return cmsis_uart->DR;
+    return (char)hal_uart_r(uart);
 }
 
 static inline void hal_uart_read(char* buf, char sep, bool echo, hal_uart uart) {
@@ -431,34 +447,90 @@ SPI_TypeDef* _hal_get_cmsis_spi(hal_spi spi) {
     }
 }
 
+void _hal_set_cmsis_spi_gpio(hal_spi spi) {
+    hal_gpio_cfg cfg = hal_gpio_cfg_new(HAL_GPIO_AOUT, HAL_GPIO_50MHz);
+
+    switch(spi) {
+        case HAL_SPI1:
+            hal_gpio_setup(HAL_GPIOA, 5, cfg); // sck
+            hal_gpio_setup(HAL_GPIOA, 7, cfg); // mosi
+            return;
+        case HAL_SPI2:
+            hal_gpio_setup(HAL_GPIOB, 13, cfg); // sck
+            hal_gpio_setup(HAL_GPIOB, 15, cfg); // mosi
+            return;
+        default:
+            // unreachable
+            return;
+    }
+}
+
 static inline void hal_use_spi(hal_spi spi) {
     if(spi == HAL_SPI1) RCC->APB2ENR |= spi;
     else if(spi == HAL_SPI2) RCC->APB1ENR |= spi;
 }
 
-static inline void hal_spi_init(hal_spi spi) {
+static inline void hal_spi_setup(hal_spi spi) {
     SPI_TypeDef* cmsis_spi = _hal_get_cmsis_spi(spi);
 
     RCC->APB2ENR |= RCC_APB2ENR_IOPAEN;
     RCC->APB2ENR |= RCC_APB2ENR_AFIOEN;
     RCC->APB2ENR |= RCC_APB2ENR_SPI1EN;
 
-    // pa5(scl)
-    GPIOA->CRL &= ~GPIO_CRL_CNF5;
-    GPIOA->CRL |= GPIO_CRL_CNF5_1;
-    GPIOA->CRL |= GPIO_CRL_MODE5; // 50Mhz
+    _hal_set_cmsis_spi_gpio(spi);
 
-    // pa7(mosi)
-    GPIOA->CRL &= ~GPIO_CRL_CNF7;
-    GPIOA->CRL |= GPIO_CRL_CNF7_1;
-    GPIOA->CRL |= GPIO_CRL_MODE7; // 50Mhz
-
-    // spi
     cmsis_spi->CR1 |= SPI_CR1_BIDIMODE | SPI_CR1_BIDIOE;
     cmsis_spi->CR1 |= SPI_CR1_SSM | SPI_CR1_SSI | SPI_CR1_MSTR ; // master
-
-    cmsis_spi->CR1 |= SPI_CR1_SPE; // enable spi
 }
+
+static inline void hal_spi_on(hal_spi spi) {
+    SPI_TypeDef* cmsis_spi = _hal_get_cmsis_spi(spi);
+    cmsis_spi->CR1 |= SPI_CR1_SPE;
+}
+
+static inline void hal_spi_w(uint8_t val, hal_spi spi) {
+    SPI_TypeDef* cmsis_spi = _hal_get_cmsis_spi(spi);
+
+    while(!(cmsis_spi->SR & SPI_SR_TXE));
+    cmsis_spi->DR = val;
+
+    while(!(cmsis_spi->SR & SPI_SR_TXE));
+    while((cmsis_spi->SR & SPI_SR_BSY));
+}
+
+static inline void hal_spi_w16(uint16_t val, hal_spi spi) {
+    SPI_TypeDef* cmsis_spi = _hal_get_cmsis_spi(spi);
+
+    cmsis_spi->CR1 |= SPI_CR1_DFF;
+
+    while(!(cmsis_spi->SR & SPI_SR_TXE));
+    cmsis_spi->DR = val;
+
+    while(!(cmsis_spi->SR & SPI_SR_TXE));
+    while((cmsis_spi->SR & SPI_SR_BSY));
+
+    cmsis_spi->CR1 &= ~SPI_CR1_DFF;
+}
+
+static inline uint8_t hal_spi_r(hal_spi spi) {
+    SPI_TypeDef* cmsis_spi = _hal_get_cmsis_spi(spi);
+
+    while(!(cmsis_spi->SR & SPI_SR_RXNE));
+    return cmsis_spi->DR;
+}
+
+static inline uint16_t hal_spi_r16(hal_spi spi) {
+    SPI_TypeDef* cmsis_spi = _hal_get_cmsis_spi(spi);
+
+    cmsis_spi->CR1 |= SPI_CR1_DFF;
+    while(!(cmsis_spi->SR & SPI_SR_RXNE));
+
+    uint16_t res = cmsis_spi->DR;
+    cmsis_spi->CR1 &= ~SPI_CR1_DFF;
+
+    return res;
+}
+
 
 // timer
 static inline void hal_use_timer(hal_timer tim) {
