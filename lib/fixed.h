@@ -13,6 +13,7 @@ typedef int16_t fxd_t;
 #define fxd_add(x, y) ((x) + (y))
 #define fxd_sub(x, y) ((x) - (y))
 #define fxd_mul(x, y) (((x) * (y)) >> FIXED_PREC)
+#define fxd_div(x, y) (((x) << FIXED_PREC) / (y))
 #define fxd_addi(ix, y) (((ix) << FIXED_PREC) + (y))
 #define fxd_muli(ix, y) ((ix) * (y))
 #define fxd_neg(x) (-(x))
