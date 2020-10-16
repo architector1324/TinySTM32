@@ -19,7 +19,7 @@
 
 // misc
 typedef void (*hal_irq)();
-static inline void hal_delay(uint32_t ms);
+void hal_delay(uint32_t ms);
 
 // gpio
 typedef enum {
@@ -58,16 +58,16 @@ typedef struct {
     uint8_t pin;
 } hal_gpio_pin;
 
-static inline hal_gpio_pin hal_gpio_pin_new(hal_gpio port, uint8_t pin);
-static inline hal_gpio_cfg hal_gpio_cfg_new(hal_gpio_type type, hal_gpio_mode mode);
+hal_gpio_pin hal_gpio_pin_new(hal_gpio port, uint8_t pin);
+hal_gpio_cfg hal_gpio_cfg_new(hal_gpio_type type, hal_gpio_mode mode);
 
-static inline void hal_use_gpio(hal_gpio port);
-static inline void hal_not_use_gpio(hal_gpio port);
-static inline void hal_use_afio();
-static inline bool hal_gpio_setup(hal_gpio port, uint8_t pin, hal_gpio_cfg cfg);
-static inline bool hal_gpio_w(hal_gpio port, uint8_t pin, hal_gpio_val val);
-static inline hal_gpio_val hal_gpio_r(hal_gpio port, uint8_t pin);
-static inline bool hal_gpio_inv(hal_gpio port, uint8_t pin);
+void hal_use_gpio(hal_gpio port);
+void hal_not_use_gpio(hal_gpio port);
+void hal_use_afio();
+bool hal_gpio_setup(hal_gpio port, uint8_t pin, hal_gpio_cfg cfg);
+bool hal_gpio_w(hal_gpio port, uint8_t pin, hal_gpio_val val);
+hal_gpio_val hal_gpio_r(hal_gpio port, uint8_t pin);
+bool hal_gpio_inv(hal_gpio port, uint8_t pin);
 
 // uart
 typedef enum {
@@ -82,19 +82,19 @@ typedef struct {
     uint32_t baud;
 } hal_uart_cfg;
 
-static inline hal_uart_cfg hal_uart_cfg_new(bool rx, bool tx, uint32_t baud);
+hal_uart_cfg hal_uart_cfg_new(bool rx, bool tx, uint32_t baud);
 
-static inline void hal_use_uart(hal_uart uart);
-static inline void hal_uart_setup(hal_uart uart, hal_uart_cfg cfg);
-static inline void hal_uart_on(hal_uart uart);
-static inline void hal_uart_w(uint8_t val, hal_uart uart);
-static inline uint8_t hal_uart_r(hal_uart uart);
+void hal_use_uart(hal_uart uart);
+void hal_uart_setup(hal_uart uart, hal_uart_cfg cfg);
+void hal_uart_on(hal_uart uart);
+void hal_uart_w(uint8_t val, hal_uart uart);
+uint8_t hal_uart_r(hal_uart uart);
 
-static inline void hal_uart_printc(char ch, hal_uart uart);
+void hal_uart_printc(char ch, hal_uart uart);
 static void hal_uart_print(const char* s, hal_uart uart);
 static void hal_uart_printf(hal_uart uart, const char* fmt, ...);
-static inline char hal_uart_readc(hal_uart uart);
-static inline void hal_uart_read(char* buf, char sep, bool echo, hal_uart uart);
+char hal_uart_readc(hal_uart uart);
+void hal_uart_read(char* buf, char sep, bool echo, hal_uart uart);
 
 // spi
 typedef enum {
@@ -102,13 +102,13 @@ typedef enum {
     HAL_SPI2 = RCC_APB1ENR_SPI2EN
 } hal_spi;
 
-static inline void hal_use_spi(hal_spi spi);
-static inline void hal_spi_setup(hal_spi spi);
-static inline void hal_spi_on(hal_spi spi);
-static inline void hal_spi_w(uint8_t val, hal_spi spi);
-static inline uint8_t hal_spi_r(hal_spi spi);
-static inline void hal_spi_w16(uint16_t val, hal_spi spi);
-static inline uint16_t hal_spi_r16(hal_spi spi);
+void hal_use_spi(hal_spi spi);
+void hal_spi_setup(hal_spi spi);
+void hal_spi_on(hal_spi spi);
+void hal_spi_w(uint8_t val, hal_spi spi);
+uint8_t hal_spi_r(hal_spi spi);
+void hal_spi_w16(uint16_t val, hal_spi spi);
+uint16_t hal_spi_r16(hal_spi spi);
 
 
 // timer
@@ -142,14 +142,14 @@ static hal_irq _hal_timer_irq[4][4] = {
     {NULL, NULL, NULL, NULL}
 };
 
-static inline hal_timer_cfg hal_timer_cfg_simple(uint32_t freq); // max freq = (SystemCoreClock / 1000) Hz
-static inline hal_timer_cfg hal_timer_cfg_new(uint32_t prescaler, uint32_t period, uint32_t duty_cycle);
+hal_timer_cfg hal_timer_cfg_simple(uint32_t freq); // max freq = (SystemCoreClock / 1000) Hz
+hal_timer_cfg hal_timer_cfg_new(uint32_t prescaler, uint32_t period, uint32_t duty_cycle);
 
-static inline void hal_use_timer(hal_timer tim);
-static inline void hal_timer_setup(hal_timer tim, hal_timer_cfg cfg);
-static inline void hal_timer_set_dc(hal_timer tim, uint16_t duty_cycle);
-static inline void hal_timer_on(hal_timer tim);
-static inline void hal_timer_off(hal_timer tim);
+void hal_use_timer(hal_timer tim);
+void hal_timer_setup(hal_timer tim, hal_timer_cfg cfg);
+void hal_timer_set_dc(hal_timer tim, uint16_t duty_cycle);
+void hal_timer_on(hal_timer tim);
+void hal_timer_off(hal_timer tim);
 
 // adc
 typedef enum {
@@ -177,19 +177,19 @@ static hal_irq _hal_adc_irq[2][16] = {
     }
 };
 
-static inline hal_adc_cfg hal_adc_cfg_new(uint8_t ch);
+hal_adc_cfg hal_adc_cfg_new(uint8_t ch);
 
-static inline void hal_use_adc(hal_adc adc);
-static inline void hal_adc_setup(hal_adc adc, hal_adc_cfg cfg);
-static inline uint16_t hal_adc_r(hal_adc adc);
-static inline void hal_adc_on(hal_adc adc);
+void hal_use_adc(hal_adc adc);
+void hal_adc_setup(hal_adc adc, hal_adc_cfg cfg);
+uint16_t hal_adc_r(hal_adc adc);
+void hal_adc_on(hal_adc adc);
 
 ////////////////////////////////
 //       IMPLEMENTATION       //
 ////////////////////////////////
 
 // misc
-static inline void hal_delay(uint32_t ms) {
+void hal_delay(uint32_t ms) {
     if(!(DWT->CTRL & DWT_CTRL_CYCCNTENA_Msk)) DWT->CTRL = DWT_CTRL_CYCCNTENA_Msk;
     DWT->CYCCNT = 0;
 
@@ -198,29 +198,29 @@ static inline void hal_delay(uint32_t ms) {
 }
 
 // gpio
-static inline hal_gpio_pin hal_gpio_pin_new(hal_gpio port, uint8_t pin) {
+hal_gpio_pin hal_gpio_pin_new(hal_gpio port, uint8_t pin) {
     return (hal_gpio_pin) {
         .port = port,
         .pin = pin
     };
 }
 
-static inline hal_gpio_cfg hal_gpio_cfg_new(hal_gpio_type type, hal_gpio_mode mode) {
+hal_gpio_cfg hal_gpio_cfg_new(hal_gpio_type type, hal_gpio_mode mode) {
     return (hal_gpio_cfg) {
         .type = type,
         .mode = mode
     };
 }
 
-static inline void hal_use_gpio(hal_gpio port) {
+void hal_use_gpio(hal_gpio port) {
     RCC->APB2ENR |= port;
 }
 
-static inline void hal_use_afio() {
+void hal_use_afio() {
     RCC->APB2ENR |= RCC_APB2ENR_AFIOEN;
 }
 
-static inline void hal_not_use_gpio(hal_gpio port) {
+void hal_not_use_gpio(hal_gpio port) {
     RCC->APB2ENR &= ~port;
 }
 
@@ -238,7 +238,7 @@ GPIO_TypeDef* _hal_get_cmsis_port(hal_gpio port) {
     }
 }
 
-static inline bool hal_gpio_setup(hal_gpio port, uint8_t pin, hal_gpio_cfg cfg) {
+bool hal_gpio_setup(hal_gpio port, uint8_t pin, hal_gpio_cfg cfg) {
     if(pin > 15) return false;
 
     GPIO_TypeDef* cmsis_port = _hal_get_cmsis_port(port);
@@ -279,7 +279,7 @@ static inline bool hal_gpio_setup(hal_gpio port, uint8_t pin, hal_gpio_cfg cfg) 
     return false;
 }
 
-static inline bool hal_gpio_w(hal_gpio port, uint8_t pin, hal_gpio_val val) {
+bool hal_gpio_w(hal_gpio port, uint8_t pin, hal_gpio_val val) {
     if(pin > 15) return false;
 
     GPIO_TypeDef* cmsis_port = _hal_get_cmsis_port(port);
@@ -291,7 +291,7 @@ static inline bool hal_gpio_w(hal_gpio port, uint8_t pin, hal_gpio_val val) {
     return true;
 }
 
-static inline hal_gpio_val hal_gpio_r(hal_gpio port, uint8_t pin) {
+hal_gpio_val hal_gpio_r(hal_gpio port, uint8_t pin) {
     if(pin > 15) return HAL_GPIO_UNDEF;
 
     GPIO_TypeDef* cmsis_port = _hal_get_cmsis_port(port);
@@ -304,7 +304,7 @@ static inline hal_gpio_val hal_gpio_r(hal_gpio port, uint8_t pin) {
     return HAL_GPIO_LOW;
 }
 
-static inline bool hal_gpio_inv(hal_gpio port, uint8_t pin) {
+bool hal_gpio_inv(hal_gpio port, uint8_t pin) {
     if(pin > 15) return false;
 
     GPIO_TypeDef* cmsis_port = _hal_get_cmsis_port(port);
@@ -314,12 +314,12 @@ static inline bool hal_gpio_inv(hal_gpio port, uint8_t pin) {
 }
 
 // uart
-static inline void hal_use_uart(hal_uart uart) {
+void hal_use_uart(hal_uart uart) {
     if(uart == HAL_UART1) RCC->APB2ENR |= uart;
     else RCC->APB1ENR |= uart;
 }
 
-static inline hal_uart_cfg hal_uart_cfg_new(bool rx, bool tx, uint32_t baud) {
+hal_uart_cfg hal_uart_cfg_new(bool rx, bool tx, uint32_t baud) {
     return (hal_uart_cfg) {
         .rx = rx,
         .tx = tx,
@@ -379,7 +379,7 @@ void _hal_set_cmsis_uart_tx_gpio(hal_uart uart) {
     }
 }
 
-static inline void hal_uart_setup(hal_uart uart, hal_uart_cfg cfg) {
+void hal_uart_setup(hal_uart uart, hal_uart_cfg cfg) {
     USART_TypeDef* cmsis_uart = _hal_get_cmsis_uart(uart);
 
     if(cfg.rx) {
@@ -395,24 +395,24 @@ static inline void hal_uart_setup(hal_uart uart, hal_uart_cfg cfg) {
     cmsis_uart->BRR = SystemCoreClock / cfg.baud;
 }
 
-static inline void hal_uart_on(hal_uart uart) {
+void hal_uart_on(hal_uart uart) {
     USART_TypeDef* cmsis_uart = _hal_get_cmsis_uart(uart);
     cmsis_uart->CR1 |= USART_CR1_UE;
 }
 
-static inline void hal_uart_w(uint8_t val, hal_uart uart) {
+void hal_uart_w(uint8_t val, hal_uart uart) {
     USART_TypeDef* cmsis_uart = _hal_get_cmsis_uart(uart);
     while(!(cmsis_uart->SR & USART_SR_TC));
     cmsis_uart->DR = val;
 }
 
-static inline uint8_t hal_uart_r(hal_uart uart) {
+uint8_t hal_uart_r(hal_uart uart) {
     USART_TypeDef* cmsis_uart = _hal_get_cmsis_uart(uart);
     while(!(cmsis_uart->SR & USART_SR_RXNE));
     return cmsis_uart->DR;
 }
 
-static inline void hal_uart_printc(char ch, hal_uart uart){
+void hal_uart_printc(char ch, hal_uart uart){
     hal_uart_w((uint8_t)ch, uart);
 }
 
@@ -432,11 +432,11 @@ static void hal_uart_printf(hal_uart uart, const char* fmt, ...) {
     hal_uart_print(buf, uart);
 }
 
-static inline char hal_uart_readc(hal_uart uart) {
+char hal_uart_readc(hal_uart uart) {
     return (char)hal_uart_r(uart);
 }
 
-static inline void hal_uart_read(char* buf, char sep, bool echo, hal_uart uart) {
+void hal_uart_read(char* buf, char sep, bool echo, hal_uart uart) {
     uint32_t pos = 0;
     char last = 0;
 
@@ -478,12 +478,12 @@ void _hal_set_cmsis_spi_gpio(hal_spi spi) {
     }
 }
 
-static inline void hal_use_spi(hal_spi spi) {
+void hal_use_spi(hal_spi spi) {
     if(spi == HAL_SPI1) RCC->APB2ENR |= spi;
     else if(spi == HAL_SPI2) RCC->APB1ENR |= spi;
 }
 
-static inline void hal_spi_setup(hal_spi spi) {
+void hal_spi_setup(hal_spi spi) {
     SPI_TypeDef* cmsis_spi = _hal_get_cmsis_spi(spi);
 
     RCC->APB2ENR |= RCC_APB2ENR_IOPAEN;
@@ -496,12 +496,12 @@ static inline void hal_spi_setup(hal_spi spi) {
     cmsis_spi->CR1 |= SPI_CR1_SSM | SPI_CR1_SSI | SPI_CR1_MSTR ; // master
 }
 
-static inline void hal_spi_on(hal_spi spi) {
+void hal_spi_on(hal_spi spi) {
     SPI_TypeDef* cmsis_spi = _hal_get_cmsis_spi(spi);
     cmsis_spi->CR1 |= SPI_CR1_SPE;
 }
 
-static inline void hal_spi_w(uint8_t val, hal_spi spi) {
+void hal_spi_w(uint8_t val, hal_spi spi) {
     SPI_TypeDef* cmsis_spi = _hal_get_cmsis_spi(spi);
 
     while(!(cmsis_spi->SR & SPI_SR_TXE));
@@ -511,7 +511,7 @@ static inline void hal_spi_w(uint8_t val, hal_spi spi) {
     while((cmsis_spi->SR & SPI_SR_BSY));
 }
 
-static inline void hal_spi_w16(uint16_t val, hal_spi spi) {
+void hal_spi_w16(uint16_t val, hal_spi spi) {
     SPI_TypeDef* cmsis_spi = _hal_get_cmsis_spi(spi);
 
     cmsis_spi->CR1 |= SPI_CR1_DFF;
@@ -525,14 +525,14 @@ static inline void hal_spi_w16(uint16_t val, hal_spi spi) {
     cmsis_spi->CR1 &= ~SPI_CR1_DFF;
 }
 
-static inline uint8_t hal_spi_r(hal_spi spi) {
+uint8_t hal_spi_r(hal_spi spi) {
     SPI_TypeDef* cmsis_spi = _hal_get_cmsis_spi(spi);
 
     while(!(cmsis_spi->SR & SPI_SR_RXNE));
     return cmsis_spi->DR;
 }
 
-static inline uint16_t hal_spi_r16(hal_spi spi) {
+uint16_t hal_spi_r16(hal_spi spi) {
     SPI_TypeDef* cmsis_spi = _hal_get_cmsis_spi(spi);
 
     cmsis_spi->CR1 |= SPI_CR1_DFF;
@@ -546,7 +546,7 @@ static inline uint16_t hal_spi_r16(hal_spi spi) {
 
 
 // timer
-static inline void hal_use_timer(hal_timer tim) {
+void hal_use_timer(hal_timer tim) {
     if(tim == HAL_TIMER1) RCC->APB2ENR |= tim;
     else RCC->APB1ENR |= tim;
 }
@@ -567,7 +567,7 @@ TIM_TypeDef* _hal_get_cmsis_timer(hal_timer tim) {
     }
 }
 
-static inline hal_timer_cfg hal_timer_cfg_simple(uint32_t freq) {
+hal_timer_cfg hal_timer_cfg_simple(uint32_t freq) {
     return (hal_timer_cfg) {
         .prescaler = (SystemCoreClock / 1000) / freq,
         .period = 1000,
@@ -577,7 +577,7 @@ static inline hal_timer_cfg hal_timer_cfg_simple(uint32_t freq) {
     };
 }
 
-static inline hal_timer_cfg hal_timer_cfg_new(uint32_t prescaler, uint32_t period, uint32_t duty_cycle) {
+hal_timer_cfg hal_timer_cfg_new(uint32_t prescaler, uint32_t period, uint32_t duty_cycle) {
     return (hal_timer_cfg) {
         .prescaler = prescaler,
         .period = period,
@@ -643,7 +643,7 @@ void _hal_set_cmsis_timer_irq(hal_timer tim, hal_irq hlr) {
     }
 }
 
-static inline void hal_timer_setup(hal_timer tim, hal_timer_cfg cfg) {
+void hal_timer_setup(hal_timer tim, hal_timer_cfg cfg) {
     TIM_TypeDef* cmsis_timer = _hal_get_cmsis_timer(tim);
 
     cmsis_timer->PSC = cfg.prescaler - 1; // prescaler: freq = clock / (prescaler + 1)
@@ -662,43 +662,51 @@ static inline void hal_timer_setup(hal_timer tim, hal_timer_cfg cfg) {
     }
 }
 
-static inline void hal_timer_set_dc(hal_timer tim, uint16_t duty_cycle) {
+void hal_timer_set_dc(hal_timer tim, uint16_t duty_cycle) {
     TIM_TypeDef* cmsis_timer = _hal_get_cmsis_timer(tim);
     cmsis_timer->CCR2 = duty_cycle;
 }
 
-static inline void hal_timer_on(hal_timer tim) {
+void hal_timer_on(hal_timer tim) {
     TIM_TypeDef* cmsis_timer = _hal_get_cmsis_timer(tim);
     cmsis_timer->CR1 |= TIM_CR1_CEN;
 }
 
-static inline void hal_timer_off(hal_timer tim) {
+void hal_timer_off(hal_timer tim) {
     TIM_TypeDef* cmsis_timer = _hal_get_cmsis_timer(tim);
     cmsis_timer->CR1 &= ~TIM_CR1_CEN;
 }
 
 void TIM1_CC_IRQHandler() {
     TIM1->SR &= ~TIM_SR_UIF;
-    _hal_timer_irq[0][0]();
+
+    if(_hal_timer_irq[0][0])
+        _hal_timer_irq[0][0]();
 }
 
 void TIM2_IRQHandler() {
     TIM2->SR &= ~TIM_SR_UIF;
-    _hal_timer_irq[1][0]();
+
+    if(_hal_timer_irq[1][0])
+        _hal_timer_irq[1][0]();
 }
 
 void TIM3_IRQHandler() {
     TIM3->SR &= ~TIM_SR_UIF;
-    _hal_timer_irq[2][0]();
+
+    if(_hal_timer_irq[2][0])
+        _hal_timer_irq[2][0]();
 }
 
 void TIM4_IRQHandler() {
     TIM4->SR &= ~TIM_SR_UIF;
-    _hal_timer_irq[3][0]();
+
+    if(_hal_timer_irq[3][0])
+        _hal_timer_irq[3][0]();
 }
 
 // adc
-static inline void hal_use_adc(hal_adc adc) {
+void hal_use_adc(hal_adc adc) {
     RCC->APB2ENR |= adc;
 }
 
@@ -735,7 +743,7 @@ void _hal_set_cmsis_adc_ch(ADC_TypeDef* adc, uint8_t ch) {
     }
 }
 
-static inline hal_adc_cfg hal_adc_cfg_new(uint8_t ch) {
+hal_adc_cfg hal_adc_cfg_new(uint8_t ch) {
     return (hal_adc_cfg) {
         .ch = ch
     };
@@ -755,7 +763,7 @@ void _hal_set_cmsis_adc_irq(hal_adc adc, hal_irq hlr) {
     }
 }
 
-static inline void hal_adc_setup(hal_adc adc, hal_adc_cfg cfg) {
+void hal_adc_setup(hal_adc adc, hal_adc_cfg cfg) {
     ADC_TypeDef* cmsis_adc = _hal_get_cmsis_adc(adc);
 
     cmsis_adc->CR2 |= ADC_CR2_CAL; // calibration
@@ -774,13 +782,13 @@ static inline void hal_adc_setup(hal_adc adc, hal_adc_cfg cfg) {
     }
 }
 
-static inline uint16_t hal_adc_r(hal_adc adc) {
+uint16_t hal_adc_r(hal_adc adc) {
     ADC_TypeDef* cmsis_adc = _hal_get_cmsis_adc(adc);
     while(!(cmsis_adc->SR & ADC_SR_EOC));
     return cmsis_adc->DR;
 }
 
-static inline void hal_adc_on(hal_adc adc) {
+void hal_adc_on(hal_adc adc) {
     ADC_TypeDef* cmsis_adc = _hal_get_cmsis_adc(adc);
     cmsis_adc->CR2 |= ADC_CR2_ADON;
     cmsis_adc->CR2 |= ADC_CR2_SWSTART;
@@ -788,10 +796,12 @@ static inline void hal_adc_on(hal_adc adc) {
 
 void ADC1_2_IRQHandler() {
     if(ADC1->SR & ADC_SR_EOC) {
-        _hal_adc_irq[0][0]();
+        if(_hal_adc_irq[0][0])
+            _hal_adc_irq[0][0]();
         ADC1->SR &= ~ADC_SR_EOC;
     } else if (ADC2->SR & ADC_SR_EOC) {
-        _hal_adc_irq[1][0]();
+        if(_hal_adc_irq[1][0])
+            _hal_adc_irq[1][0]();
         ADC2->SR &= ~ADC_SR_EOC;
     }
 }
