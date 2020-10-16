@@ -723,17 +723,10 @@ ADC_TypeDef* _hal_get_cmsis_adc(hal_adc adc) {
 }
 
 void _hal_set_cmsis_adc_ch(ADC_TypeDef* adc, uint8_t ch) {
-    size_t sq_pos = 5 * (ch % 6);
     size_t smp_pos = 3 * (ch % 10);
 
     // enable channel
-    if(ch < 6) {
-        adc->SQR3 &= ~(0x1f << sq_pos);
-    } else if(ch < 12) {
-        adc->SQR2 &= ~(0x1f << sq_pos);
-    } else if(ch < 16) {
-        adc->SQR1 &= ~(0x1f << sq_pos);
-    }
+    adc->SQR3 |= ch % 16;
 
     // sampling
     if(ch < 10) {
@@ -796,13 +789,13 @@ void hal_adc_on(hal_adc adc) {
 
 void ADC1_2_IRQHandler() {
     if(ADC1->SR & ADC_SR_EOC) {
+        ADC1->SR &= ~ADC_SR_EOC;
         if(_hal_adc_irq[0][0])
             _hal_adc_irq[0][0]();
-        ADC1->SR &= ~ADC_SR_EOC;
     } else if (ADC2->SR & ADC_SR_EOC) {
+        ADC2->SR &= ~ADC_SR_EOC;
         if(_hal_adc_irq[1][0])
             _hal_adc_irq[1][0]();
-        ADC2->SR &= ~ADC_SR_EOC;
     }
 }
 
