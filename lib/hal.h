@@ -157,8 +157,14 @@ typedef enum {
     HAL_ADC2 = RCC_APB2ENR_ADC2EN
 } hal_adc;
 
+typedef enum {
+    HAL_ADC_ONCE,
+    HAL_ADC_CONT
+} hal_adc_mode;
+
 typedef struct {
     uint8_t ch;
+    hal_adc_mode mode;
     hal_irq irq;
 } hal_adc_cfg;
 
@@ -177,12 +183,13 @@ static hal_irq _hal_adc_irq[2][16] = {
     }
 };
 
-hal_adc_cfg hal_adc_cfg_new(uint8_t ch);
+hal_adc_cfg hal_adc_cfg_new(uint8_t ch, hal_adc_mode mode);
 
 void hal_use_adc(hal_adc adc);
 void hal_adc_setup(hal_adc adc, hal_adc_cfg cfg);
 uint16_t hal_adc_r(hal_adc adc);
 void hal_adc_on(hal_adc adc);
+void hal_adc_go(hal_adc adc);
 
 ////////////////////////////////
 //       IMPLEMENTATION       //
@@ -736,9 +743,10 @@ void _hal_set_cmsis_adc_ch(ADC_TypeDef* adc, uint8_t ch) {
     }
 }
 
-hal_adc_cfg hal_adc_cfg_new(uint8_t ch) {
+hal_adc_cfg hal_adc_cfg_new(uint8_t ch, hal_adc_mode mode) {
     return (hal_adc_cfg) {
-        .ch = ch
+        .ch = ch,
+        .mode = mode
     };
 }
 
@@ -762,7 +770,11 @@ void hal_adc_setup(hal_adc adc, hal_adc_cfg cfg) {
     cmsis_adc->CR2 |= ADC_CR2_CAL; // calibration
     while(!(cmsis_adc->CR2 & ADC_CR2_CAL));
 
-    cmsis_adc->CR2 |= ADC_CR2_CONT; // continious conv
+    if(cfg.mode == HAL_ADC_CONT)
+        cmsis_adc->CR2 |= ADC_CR2_CONT;
+    else
+        cmsis_adc->CR2 &= ~ADC_CR2_CONT;
+
     cmsis_adc->CR2 |= ADC_CR2_EXTSEL; // conv by flag SWSTART
     cmsis_adc->CR2 |= ADC_CR2_EXTTRIG; // conv by EXTI
 
@@ -784,18 +796,22 @@ uint16_t hal_adc_r(hal_adc adc) {
 void hal_adc_on(hal_adc adc) {
     ADC_TypeDef* cmsis_adc = _hal_get_cmsis_adc(adc);
     cmsis_adc->CR2 |= ADC_CR2_ADON;
+}
+
+void hal_adc_go(hal_adc adc) {
+    ADC_TypeDef* cmsis_adc = _hal_get_cmsis_adc(adc);
     cmsis_adc->CR2 |= ADC_CR2_SWSTART;
 }
 
 void ADC1_2_IRQHandler() {
     if(ADC1->SR & ADC_SR_EOC) {
-        ADC1->SR &= ~ADC_SR_EOC;
         if(_hal_adc_irq[0][0])
             _hal_adc_irq[0][0]();
+        ADC1->SR &= ~ADC_SR_EOC;
     } else if (ADC2->SR & ADC_SR_EOC) {
-        ADC2->SR &= ~ADC_SR_EOC;
         if(_hal_adc_irq[1][0])
             _hal_adc_irq[1][0]();
+        ADC2->SR &= ~ADC_SR_EOC;
     }
 }
 
