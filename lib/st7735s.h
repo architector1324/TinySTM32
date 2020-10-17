@@ -17,6 +17,8 @@ typedef struct {
     uint8_t h;
 } st7735s;
 
+uint16_t misc_rgb565(uint8_t r, uint8_t g, uint8_t b);
+
 void st7735s_cmd(uint8_t cmd, const st7735s* disp);
 void st7735s_dat(uint8_t dat, const st7735s* disp);
 void st7735s_dat16(uint16_t dat, const st7735s* disp);
@@ -33,6 +35,7 @@ void st7735s_fillImage(const uint16_t* img, const st7735s* disp);
 void st7735s_drawPixel(int16_t x, int16_t y, uint16_t color, const st7735s* disp);
 void st7735s_drawFunc(int16_t x0, int16_t y0, uint8_t w, uint8_t h, uint16_t (*color_f)(int16_t x, int16_t y), const st7735s* disp);
 void st7735s_drawRect(int16_t x0, int16_t y0, uint8_t w, uint8_t h, uint16_t color, const st7735s* disp);
+void st7735s_drawLine(int16_t x0, int16_t y0, int16_t x1, int16_t y1, uint16_t color, const st7735s* disp);
 
 void st7735s_drawSprite(const uint16_t* img, int16_t x0, int16_t y0, uint8_t w, uint8_t h, const st7735s* disp);
 void st7735s_drawSpriteWithKey(const uint16_t* img, int16_t x0, int16_t y0, uint8_t w, uint8_t h, uint16_t key, const st7735s* disp);
@@ -46,6 +49,10 @@ void st7735s_drawText(const char* text, int16_t x, int16_t y, uint8_t size, uint
 ////////////////////////////////
 //       IMPLEMENTATION       //
 ////////////////////////////////
+
+inline uint16_t misc_rgb565(uint8_t r, uint8_t g, uint8_t b) {
+    return (((uint32_t)r & 0xf8) << 8) + (((uint32_t)g & 0xfc) << 3) + ((uint32_t)b >> 3);
+}
 
 void st7735s_cmd(uint8_t cmd, const st7735s* disp) {
     hal_gpio_w(disp->dc.port, disp->dc.pin, HAL_GPIO_LOW);
@@ -69,7 +76,7 @@ void st7735s_dat16(uint16_t dat, const st7735s* disp){
     hal_gpio_w(disp->dc.port, disp->dc.pin, HAL_GPIO_HIGH);
     hal_gpio_w(disp->cs.port, disp->cs.pin, HAL_GPIO_LOW);
 
-    hal_spi_w16(dat, disp->spi);
+	hal_spi_w16(dat, disp->spi);
 
     hal_gpio_w(disp->cs.port, disp->cs.pin, HAL_GPIO_HIGH);
 }
@@ -160,6 +167,59 @@ void st7735s_drawRect(int16_t x0, int16_t y0, uint8_t w, uint8_t h, uint16_t col
     for(uint16_t i = 0; i < size; i++) st7735s_dat16(color, disp);
 
     st7735s_default(disp);
+}
+
+void st7735s_drawLine(int16_t x0, int16_t y0, int16_t x1, int16_t y1, uint16_t color, const st7735s* disp) {
+    // Bresenhams line algorithm
+    int16_t max_x = x1 - x0;
+    int16_t dx = max_x >= 0 ? 1 : -1;
+    max_x = max_x > 0 ? max_x : -max_x;
+
+    int16_t max_y = y1 - y0;
+    int16_t dy = max_y >= 0 ? 1 : -1;
+    max_y = max_y > 0 ? max_y : -max_y;
+
+    int16_t max = max_x < max_y ? max_y : max_x;
+
+    // draw pixel
+    if(max == 0) {
+        st7735s_drawPixel(x0, y0, color, disp);
+        return;
+    }
+
+    if(max_x >= max_y) {
+        int16_t x = x0;
+        int16_t y = y0;
+        int16_t d = -max_x;
+
+        max++;
+        while(max--) {
+            st7735s_drawPixel(x, y, color, disp);
+            x += dx;
+            d += max_y << 1;
+
+            if(d > 0) {
+                d -= max_x << 1;
+                y += dy;
+            }
+        }
+    } else {
+        int16_t x = x0;
+        int16_t y = y0;
+        int16_t d = -max_y;
+
+        max++;
+        while(max--) {
+            st7735s_drawPixel(x, y, color, disp);
+            y += dy;
+            d += max_x << 1;
+
+            if(d > 0) {
+                d -= max_y << 1;
+                x += dx;
+            }
+        }
+    }
 }
 
 void st7735s_drawSprite(const uint16_t* img, int16_t x0, int16_t y0, uint8_t w, uint8_t h, const st7735s* disp) {
