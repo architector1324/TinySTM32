@@ -493,14 +493,11 @@ void hal_use_spi(hal_spi spi) {
 void hal_spi_setup(hal_spi spi) {
     SPI_TypeDef* cmsis_spi = _hal_get_cmsis_spi(spi);
 
-    RCC->APB2ENR |= RCC_APB2ENR_IOPAEN;
-    RCC->APB2ENR |= RCC_APB2ENR_AFIOEN;
-    RCC->APB2ENR |= RCC_APB2ENR_SPI1EN;
-
     _hal_set_cmsis_spi_gpio(spi);
 
     cmsis_spi->CR1 |= SPI_CR1_BIDIMODE | SPI_CR1_BIDIOE; // transmit only
     cmsis_spi->CR1 |= SPI_CR1_SSM | SPI_CR1_SSI | SPI_CR1_MSTR ; // master
+    cmsis_spi->CR1 |= SPI_CR1_CPHA | SPI_CR1_CPOL;
     cmsis_spi->CR1 &= ~SPI_CR1_BR; // freq / 2
     // cmsis_spi->CR1 |= SPI_CR1_BR_0; // freq / 4
 }
