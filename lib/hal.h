@@ -499,8 +499,10 @@ void hal_spi_setup(hal_spi spi) {
 
     _hal_set_cmsis_spi_gpio(spi);
 
-    cmsis_spi->CR1 |= SPI_CR1_BIDIMODE | SPI_CR1_BIDIOE;
+    cmsis_spi->CR1 |= SPI_CR1_BIDIMODE | SPI_CR1_BIDIOE; // transmit only
     cmsis_spi->CR1 |= SPI_CR1_SSM | SPI_CR1_SSI | SPI_CR1_MSTR ; // master
+    cmsis_spi->CR1 &= ~SPI_CR1_BR; // freq / 2
+    // cmsis_spi->CR1 |= SPI_CR1_BR_0; // freq / 4
 }
 
 void hal_spi_on(hal_spi spi) {
@@ -511,11 +513,11 @@ void hal_spi_on(hal_spi spi) {
 void hal_spi_w(uint8_t val, hal_spi spi) {
     SPI_TypeDef* cmsis_spi = _hal_get_cmsis_spi(spi);
 
-    while(!(cmsis_spi->SR & SPI_SR_TXE));
+    while((cmsis_spi->SR & SPI_SR_TXE) != SPI_SR_TXE);
     cmsis_spi->DR = val;
 
-    while(!(cmsis_spi->SR & SPI_SR_TXE));
-    while((cmsis_spi->SR & SPI_SR_BSY));
+    while((cmsis_spi->SR & SPI_SR_TXE) != SPI_SR_TXE);
+    while((cmsis_spi->SR & SPI_SR_BSY) == SPI_SR_BSY);
 }
 
 void hal_spi_w16(uint16_t val, hal_spi spi) {
@@ -523,11 +525,11 @@ void hal_spi_w16(uint16_t val, hal_spi spi) {
 
     cmsis_spi->CR1 |= SPI_CR1_DFF;
 
-    while(!(cmsis_spi->SR & SPI_SR_TXE));
+    while((cmsis_spi->SR & SPI_SR_TXE) != SPI_SR_TXE);
     cmsis_spi->DR = val;
 
-    while(!(cmsis_spi->SR & SPI_SR_TXE));
-    while((cmsis_spi->SR & SPI_SR_BSY));
+    while((cmsis_spi->SR & SPI_SR_TXE) != SPI_SR_TXE);
+    while((cmsis_spi->SR & SPI_SR_BSY) == SPI_SR_BSY);
 
     cmsis_spi->CR1 &= ~SPI_CR1_DFF;
 }
