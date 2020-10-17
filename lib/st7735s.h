@@ -110,8 +110,15 @@ void st7735s_init(const st7735s* disp) {
     st7735s_cmd(0x01, disp); // software reset
     hal_delay(120);
 
+    st7735s_cmd(0x28, disp); // off
+    hal_delay(120);
+
     st7735s_cmd(0x11, disp); // sleep out
     hal_delay(120);
+
+    st7735s_cmd(0xb1, disp); // framerate
+    st7735s_dat(0x00, disp);
+    st7735s_dat(0x18, disp);
 
     st7735s_cmd(0x36, disp); // set orientation
     st7735s_dat(0x8, disp);
