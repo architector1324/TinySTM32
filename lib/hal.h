@@ -105,6 +105,10 @@ typedef enum {
 void hal_use_spi(hal_spi spi);
 void hal_spi_setup(hal_spi spi);
 void hal_spi_on(hal_spi spi);
+
+void hal_spi_sel(const hal_gpio_pin* pin);
+void hal_spi_desel(const hal_gpio_pin* pin);
+
 void hal_spi_w(uint8_t val, hal_spi spi);
 uint8_t hal_spi_r(hal_spi spi);
 void hal_spi_w16(uint16_t val, hal_spi spi);
@@ -505,6 +509,14 @@ void hal_spi_setup(hal_spi spi) {
 void hal_spi_on(hal_spi spi) {
     SPI_TypeDef* cmsis_spi = _hal_get_cmsis_spi(spi);
     cmsis_spi->CR1 |= SPI_CR1_SPE;
+}
+
+void hal_spi_sel(const hal_gpio_pin* pin) {
+    hal_gpio_w(pin->port, pin->pin, HAL_GPIO_LOW);
+}
+
+void hal_spi_desel(const hal_gpio_pin* pin) {
+    hal_gpio_w(pin->port, pin->pin, HAL_GPIO_HIGH);
 }
 
 void hal_spi_w(uint8_t val, hal_spi spi) {

@@ -56,29 +56,29 @@ inline uint16_t misc_rgb565(uint8_t r, uint8_t g, uint8_t b) {
 
 void st7735s_cmd(uint8_t cmd, const st7735s* disp) {
     hal_gpio_w(disp->dc.port, disp->dc.pin, HAL_GPIO_LOW);
-    hal_gpio_w(disp->cs.port, disp->cs.pin, HAL_GPIO_LOW);
+    hal_spi_sel(&disp->cs);
 
     hal_spi_w(cmd, disp->spi);
 
-    hal_gpio_w(disp->cs.port, disp->cs.pin, HAL_GPIO_HIGH);
+    hal_spi_desel(&disp->cs);
 }
 
 void st7735s_dat(uint8_t dat, const st7735s* disp) {
     hal_gpio_w(disp->dc.port, disp->dc.pin, HAL_GPIO_HIGH);
-    hal_gpio_w(disp->cs.port, disp->cs.pin, HAL_GPIO_LOW);
+    hal_spi_sel(&disp->cs);
 
     hal_spi_w(dat, disp->spi);
 
-    hal_gpio_w(disp->cs.port, disp->cs.pin, HAL_GPIO_HIGH);
+    hal_spi_desel(&disp->cs);
 }
 
 void st7735s_dat16(uint16_t dat, const st7735s* disp){
     hal_gpio_w(disp->dc.port, disp->dc.pin, HAL_GPIO_HIGH);
-    hal_gpio_w(disp->cs.port, disp->cs.pin, HAL_GPIO_LOW);
+    hal_spi_sel(&disp->cs);
 
 	hal_spi_w16(dat, disp->spi);
 
-    hal_gpio_w(disp->cs.port, disp->cs.pin, HAL_GPIO_HIGH);
+    hal_spi_desel(&disp->cs);
 }
 
 void st7735s_setWindow(int16_t x0, int16_t y0, uint8_t w, uint8_t h, const st7735s* disp) {
