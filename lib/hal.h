@@ -102,8 +102,26 @@ typedef enum {
     HAL_SPI2 = RCC_APB1ENR_SPI2EN
 } hal_spi;
 
+typedef enum {
+    HAL_SPI_SLAVE = SPI_CR1_SSM,
+    HAL_SPI_MASTER = SPI_CR1_SSM | SPI_CR1_SSI | SPI_CR1_MSTR
+} hal_spi_role;
+
+typedef enum {
+    HAL_SPI_SIMPLEX = SPI_CR1_BIDIMODE | SPI_CR1_BIDIOE,
+    HAL_SPI_HALF_DUPLEX = SPI_CR1_BIDIMODE,
+    HAL_SPI_FULL_DUPLEX = 0
+} hal_spi_mode;
+
+typedef struct {
+    hal_spi_role role;
+    hal_spi_mode mode;
+} hal_spi_cfg;
+
+hal_spi_cfg hal_spi_cfg_new(hal_spi_role role, hal_spi_mode mode);
+
 void hal_use_spi(hal_spi spi);
-void hal_spi_setup(hal_spi spi);
+void hal_spi_setup(hal_spi spi, hal_spi_cfg cfg);
 void hal_spi_on(hal_spi spi);
 
 void hal_spi_sel(const hal_gpio_pin* pin);
@@ -472,16 +490,19 @@ SPI_TypeDef* _hal_get_cmsis_spi(hal_spi spi) {
 }
 
 void _hal_set_cmsis_spi_gpio(hal_spi spi) {
-    hal_gpio_cfg cfg = hal_gpio_cfg_new(HAL_GPIO_AOUT, HAL_GPIO_50MHz);
+    hal_gpio_cfg out_cfg = hal_gpio_cfg_new(HAL_GPIO_AOUT, HAL_GPIO_50MHz);
+    hal_gpio_cfg in_cfg = hal_gpio_cfg_new(HAL_GPIO_AIN, HAL_GPIO_INMODE);
 
     switch(spi) {
         case HAL_SPI1:
-            hal_gpio_setup(HAL_GPIOA, 5, cfg); // sck
-            hal_gpio_setup(HAL_GPIOA, 7, cfg); // mosi
+            hal_gpio_setup(HAL_GPIOA, 5, out_cfg); // sck
+            hal_gpio_setup(HAL_GPIOA, 6, in_cfg); // miso
+            hal_gpio_setup(HAL_GPIOA, 7, out_cfg); // mosi
             return;
         case HAL_SPI2:
-            hal_gpio_setup(HAL_GPIOB, 13, cfg); // sck
-            hal_gpio_setup(HAL_GPIOB, 15, cfg); // mosi
+            hal_gpio_setup(HAL_GPIOB, 13, out_cfg); // sck
+            hal_gpio_setup(HAL_GPIOB, 14, in_cfg); // miso
+            hal_gpio_setup(HAL_GPIOB, 15, out_cfg); // mosi
             return;
         default:
             // unreachable
@@ -489,18 +510,26 @@ void _hal_set_cmsis_spi_gpio(hal_spi spi) {
     }
 }
 
+hal_spi_cfg hal_spi_cfg_new(hal_spi_role role, hal_spi_mode mode) {
+    return (hal_spi_cfg) {
+        .role = role,
+        .mode = mode
+    };
+}
+
 void hal_use_spi(hal_spi spi) {
     if(spi == HAL_SPI1) RCC->APB2ENR |= spi;
     else if(spi == HAL_SPI2) RCC->APB1ENR |= spi;
 }
 
-void hal_spi_setup(hal_spi spi) {
+void hal_spi_setup(hal_spi spi, hal_spi_cfg cfg) {
     SPI_TypeDef* cmsis_spi = _hal_get_cmsis_spi(spi);
 
     _hal_set_cmsis_spi_gpio(spi);
 
-    cmsis_spi->CR1 |= SPI_CR1_BIDIMODE | SPI_CR1_BIDIOE; // transmit only
-    cmsis_spi->CR1 |= SPI_CR1_SSM | SPI_CR1_SSI | SPI_CR1_MSTR ; // master
+    cmsis_spi->CR1 |= cfg.mode;
+    cmsis_spi->CR1 |= cfg.role;
+
     cmsis_spi->CR1 |= SPI_CR1_CPHA | SPI_CR1_CPOL;
     cmsis_spi->CR1 &= ~SPI_CR1_BR; // freq / 2
     // cmsis_spi->CR1 |= SPI_CR1_BR_0; // freq / 4
