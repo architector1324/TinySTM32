@@ -24,9 +24,10 @@ void hal_delay(uint32_t ms);
 // gpio
 typedef enum {
     HAL_GPIO_IN,
+    HAL_GPIO_IN_PULL,
     HAL_GPIO_OUT,
     HAL_GPIO_AIN,
-    HAL_GPIO_AOUT
+    HAL_GPIO_AOUT,
 } hal_gpio_type_t;
 
 typedef enum {
@@ -62,9 +63,11 @@ hal_gpio_pin_t hal_gpio_pin_new(hal_gpio_t port, uint8_t pin);
 hal_gpio_cfg_t hal_gpio_cfg_new(hal_gpio_type_t type, hal_gpio_mode_t mode);
 
 void hal_use_gpio(hal_gpio_t port);
-void hal_not_use_gpio(hal_gpio_t port);
 void hal_use_afio();
+void hal_not_use_gpio(hal_gpio_t port);
+
 bool hal_gpio_setup(hal_gpio_t port, uint8_t pin, hal_gpio_cfg_t cfg);
+
 bool hal_gpio_w(hal_gpio_t port, uint8_t pin, hal_gpio_val_t val);
 hal_gpio_val_t hal_gpio_r(hal_gpio_t port, uint8_t pin);
 bool hal_gpio_inv(hal_gpio_t port, uint8_t pin);
@@ -87,6 +90,8 @@ hal_uart_cfg_t hal_uart_cfg_new(bool rx, bool tx, uint32_t baud);
 void hal_use_uart(hal_uart_t uart);
 void hal_uart_setup(hal_uart_t uart, hal_uart_cfg_t cfg);
 void hal_uart_on(hal_uart_t uart);
+void hal_uart_off(hal_uart_t uart);
+
 void hal_uart_w(uint8_t val, hal_uart_t uart);
 uint8_t hal_uart_r(hal_uart_t uart);
 
@@ -135,12 +140,14 @@ hal_spi_cfg_t hal_spi_cfg_new(hal_spi_role_t role, hal_spi_mode_t mode, hal_spi_
 void hal_use_spi(hal_spi_t spi);
 void hal_spi_setup(hal_spi_t spi, hal_spi_cfg_t cfg);
 void hal_spi_on(hal_spi_t spi);
+void hal_spi_off(hal_spi_t spi);
 
 void hal_spi_sel(const hal_gpio_pin_t* pin);
 void hal_spi_desel(const hal_gpio_pin_t* pin);
 
 void hal_spi_w(uint8_t val, hal_spi_t spi);
 uint8_t hal_spi_r(hal_spi_t spi);
+
 void hal_spi_w16(uint16_t val, hal_spi_t spi);
 uint16_t hal_spi_r16(hal_spi_t spi);
 
@@ -181,6 +188,7 @@ hal_timer_cfg_t hal_timer_cfg_new(uint32_t prescaler, uint32_t period, uint32_t 
 void hal_use_timer(hal_timer_t tim);
 void hal_timer_setup(hal_timer_t tim, hal_timer_cfg_t cfg);
 void hal_timer_set_dc(hal_timer_t tim, uint16_t duty_cycle);
+
 void hal_timer_on(hal_timer_t tim);
 void hal_timer_off(hal_timer_t tim);
 
@@ -221,7 +229,10 @@ hal_adc_cfg_t hal_adc_cfg_new(uint8_t ch, hal_adc_mode_t mode);
 void hal_use_adc(hal_adc_t adc);
 void hal_adc_setup(hal_adc_t adc, hal_adc_cfg_t cfg);
 uint16_t hal_adc_r(hal_adc_t adc);
+
 void hal_adc_on(hal_adc_t adc);
+void hal_adc_off(hal_adc_t adc);
+
 void hal_adc_go(hal_adc_t adc);
 
 ////////////////////////////////
@@ -307,11 +318,12 @@ bool hal_gpio_setup(hal_gpio_t port, uint8_t pin, hal_gpio_cfg_t cfg) {
         default:
             return false;
         }
-    } else if(cfg.type == HAL_GPIO_IN || cfg.type == HAL_GPIO_AIN) {
+    } else if(cfg.type == HAL_GPIO_IN || cfg.type == HAL_GPIO_AIN || cfg.type == HAL_GPIO_IN_PULL) {
         *CR &= ~(1 << type_offs);
+        *CR &= ~(1 << (type_offs + 1));
 
-        if(cfg.type == HAL_GPIO_IN) *CR |= 1 << (type_offs + 1);
-        else *CR &= ~(1 << (type_offs + 1));
+        if(cfg.type == HAL_GPIO_IN_PULL) *CR |= 1 << (type_offs + 1);
+        if(cfg.type == HAL_GPIO_IN) *CR |= 1 << type_offs;
 
         *CR &= ~(3 << mode_offs);
     }
@@ -442,6 +454,11 @@ void hal_uart_on(hal_uart_t uart) {
     cmsis_uart->CR1 |= USART_CR1_UE;
 }
 
+void hal_uart_off(hal_uart_t uart) {
+    USART_TypeDef* cmsis_uart = _hal_get_cmsis_uart(uart);
+    cmsis_uart->CR1 &= ~USART_CR1_UE;
+}
+
 void hal_uart_w(uint8_t val, hal_uart_t uart) {
     USART_TypeDef* cmsis_uart = _hal_get_cmsis_uart(uart);
     while(!(cmsis_uart->SR & USART_SR_TC));
@@ -504,7 +521,7 @@ SPI_TypeDef* _hal_get_cmsis_spi(hal_spi_t spi) {
 
 void _hal_set_cmsis_spi_gpio(hal_spi_t spi) {
     hal_gpio_cfg_t out_cfg = hal_gpio_cfg_new(HAL_GPIO_AOUT, HAL_GPIO_2MHz);
-    hal_gpio_cfg_t in_cfg = hal_gpio_cfg_new(HAL_GPIO_AIN, HAL_GPIO_INMODE);
+    hal_gpio_cfg_t in_cfg = hal_gpio_cfg_new(HAL_GPIO_IN_PULL, HAL_GPIO_INMODE);
 
     switch(spi) {
         case HAL_SPI1:
@@ -557,6 +574,12 @@ void hal_spi_on(hal_spi_t spi) {
     cmsis_spi->CR1 |= SPI_CR1_SPE;
 }
 
+void hal_spi_off(hal_spi_t spi) {
+    // FIXME: this is not correct disable of SPI
+    SPI_TypeDef* cmsis_spi = _hal_get_cmsis_spi(spi);
+    cmsis_spi->CR1 &= ~SPI_CR1_SPE;
+}
+
 void hal_spi_sel(const hal_gpio_pin_t* pin) {
     hal_gpio_w(pin->port, pin->pin, HAL_GPIO_LOW);
 }
@@ -592,7 +615,10 @@ void hal_spi_w16(uint16_t val, hal_spi_t spi) {
 uint8_t hal_spi_r(hal_spi_t spi) {
     SPI_TypeDef* cmsis_spi = _hal_get_cmsis_spi(spi);
 
+    cmsis_spi->DR = 0xff;
+    while((cmsis_spi->SR & SPI_SR_BSY) == SPI_SR_BSY);
     while(!(cmsis_spi->SR & SPI_SR_RXNE));
+
     return cmsis_spi->DR;
 }
 
@@ -600,6 +626,9 @@ uint16_t hal_spi_r16(hal_spi_t spi) {
     SPI_TypeDef* cmsis_spi = _hal_get_cmsis_spi(spi);
 
     cmsis_spi->CR1 |= SPI_CR1_DFF;
+
+    cmsis_spi->DR = 0xff;
+    while((cmsis_spi->SR & SPI_SR_BSY) == SPI_SR_BSY);
     while(!(cmsis_spi->SR & SPI_SR_RXNE));
 
     uint16_t res = cmsis_spi->DR;
@@ -855,6 +884,11 @@ uint16_t hal_adc_r(hal_adc_t adc) {
 void hal_adc_on(hal_adc_t adc) {
     ADC_TypeDef* cmsis_adc = _hal_get_cmsis_adc(adc);
     cmsis_adc->CR2 |= ADC_CR2_ADON;
+}
+
+void hal_adc_off(hal_adc_t adc) {
+    ADC_TypeDef* cmsis_adc = _hal_get_cmsis_adc(adc);
+    cmsis_adc->CR2 &= ~ADC_CR2_ADON;
 }
 
 void hal_adc_go(hal_adc_t adc) {
