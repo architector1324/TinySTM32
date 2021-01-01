@@ -151,6 +151,20 @@ uint8_t hal_spi_r(hal_spi_t spi);
 void hal_spi_w16(uint16_t val, hal_spi_t spi);
 uint16_t hal_spi_r16(hal_spi_t spi);
 
+// i2c
+typedef enum {
+    HAL_I2C1 = RCC_APB1ENR_I2C1EN,
+    HAL_I2C2 = RCC_APB1ENR_I2C2EN
+} hal_i2c_t;
+
+void hal_use_i2c(hal_i2c_t i2c);
+void hal_i2c_setup(hal_i2c_t i2c);
+void hal_i2c_on(hal_i2c_t i2c);
+void hal_i2c_off(hal_i2c_t i2c);
+
+uint8_t hal_i2c_r(uint8_t reg, uint8_t adr, hal_i2c_t i2c);
+void hal_i2c_w(uint8_t val, uint8_t reg, uint8_t adr, hal_i2c_t i2c);
+
 // timer
 typedef enum {
     HAL_TIMER1 = RCC_APB2ENR_TIM1EN,
@@ -275,7 +289,7 @@ void hal_not_use_gpio(hal_gpio_t port) {
     RCC->APB2ENR &= ~port;
 }
 
-GPIO_TypeDef* _hal_get_cmsis_port(hal_gpio_t port) {
+static GPIO_TypeDef* _hal_get_cmsis_port(hal_gpio_t port) {
     switch(port) {
         case HAL_GPIOA:
             return GPIOA;
@@ -379,7 +393,7 @@ hal_uart_cfg_t hal_uart_cfg_new(bool rx, bool tx, uint32_t baud) {
     };
 }
 
-USART_TypeDef* _hal_get_cmsis_uart(hal_uart_t uart) {
+static USART_TypeDef* _hal_get_cmsis_uart(hal_uart_t uart) {
     switch(uart) {
         case HAL_UART1:
             return USART1;
@@ -393,7 +407,7 @@ USART_TypeDef* _hal_get_cmsis_uart(hal_uart_t uart) {
     }
 }
 
-void _hal_set_cmsis_uart_rx_gpio(hal_uart_t uart) {
+static void _hal_set_cmsis_uart_rx_gpio(hal_uart_t uart) {
     hal_gpio_cfg_t rx = hal_gpio_cfg_new(HAL_GPIO_IN, HAL_GPIO_INMODE);
 
     switch(uart) {
@@ -412,7 +426,7 @@ void _hal_set_cmsis_uart_rx_gpio(hal_uart_t uart) {
     }
 }
 
-void _hal_set_cmsis_uart_tx_gpio(hal_uart_t uart) {
+static void _hal_set_cmsis_uart_tx_gpio(hal_uart_t uart) {
     hal_gpio_cfg_t tx = hal_gpio_cfg_new(HAL_GPIO_AOUT, HAL_GPIO_50MHz);
 
     switch(uart) {
@@ -507,7 +521,7 @@ void hal_uart_read(char* buf, char sep, bool echo, hal_uart_t uart) {
 }
 
 // spi
-SPI_TypeDef* _hal_get_cmsis_spi(hal_spi_t spi) {
+static SPI_TypeDef* _hal_get_cmsis_spi(hal_spi_t spi) {
     switch(spi) {
         case HAL_SPI1:
             return SPI1;
@@ -519,8 +533,8 @@ SPI_TypeDef* _hal_get_cmsis_spi(hal_spi_t spi) {
     }
 }
 
-void _hal_set_cmsis_spi_gpio(hal_spi_t spi) {
-    hal_gpio_cfg_t out_cfg = hal_gpio_cfg_new(HAL_GPIO_AOUT, HAL_GPIO_2MHz);
+static void _hal_set_cmsis_spi_gpio(hal_spi_t spi) {
+    hal_gpio_cfg_t out_cfg = hal_gpio_cfg_new(HAL_GPIO_AOUT, HAL_GPIO_50MHz);
     hal_gpio_cfg_t in_cfg = hal_gpio_cfg_new(HAL_GPIO_IN_PULL, HAL_GPIO_INMODE);
 
     switch(spi) {
@@ -535,6 +549,8 @@ void _hal_set_cmsis_spi_gpio(hal_spi_t spi) {
             hal_gpio_setup(HAL_GPIOB, 13, out_cfg); // sck
             hal_gpio_setup(HAL_GPIOB, 14, in_cfg); // miso
             hal_gpio_setup(HAL_GPIOB, 15, out_cfg); // mosi
+
+            GPIOB->ODR |= GPIO_ODR_ODR14;
             return;
         default:
             // unreachable
@@ -637,6 +653,136 @@ uint16_t hal_spi_r16(hal_spi_t spi) {
     return res;
 }
 
+// i2c
+static I2C_TypeDef* _hal_get_cmsis_i2c(hal_i2c_t i2c) {
+    switch(i2c) {
+        case HAL_I2C1:
+            return I2C1;
+        case HAL_I2C2:
+            return I2C2;
+        default:
+            // unreachable
+            return NULL;
+    }
+}
+
+static void _hal_set_cmsis_i2c_gpio(hal_i2c_t i2c) {
+    hal_gpio_cfg_t cfg = hal_gpio_cfg_new(HAL_GPIO_AOUT, HAL_GPIO_2MHz);
+
+    switch(i2c) {
+        case HAL_I2C1:
+            hal_gpio_setup(HAL_GPIOB, 6, cfg);  // scl
+            hal_gpio_setup(HAL_GPIOB, 7, cfg);  // sda
+
+            GPIOB->CRL |= GPIO_CRL_CNF6_0;
+            GPIOB->CRL |= GPIO_CRL_CNF7_0;
+            return;
+        case HAL_I2C2:
+            hal_gpio_setup(HAL_GPIOB, 10, cfg);  // scl
+            hal_gpio_setup(HAL_GPIOB, 11, cfg);  // sda
+
+            GPIOB->CRH |= GPIO_CRH_CNF10_0;
+            GPIOB->CRH |= GPIO_CRH_CNF11_0;
+            return;
+        default:
+            // unreachable
+            return;
+    }
+}
+
+void hal_use_i2c(hal_i2c_t i2c) {
+    RCC->APB1ENR |= i2c;
+}
+
+void hal_i2c_setup(hal_i2c_t i2c) {
+    I2C_TypeDef* cmsis_i2c = _hal_get_cmsis_i2c(i2c);
+
+    _hal_set_cmsis_i2c_gpio(i2c);
+
+    cmsis_i2c->CR2 |= I2C_CR2_FREQ_2 | I2C_CR2_FREQ_5;  // 36MHz
+    cmsis_i2c->CCR = 180;
+    cmsis_i2c->TRISE = 36 + 1;
+}
+
+void hal_i2c_on(hal_i2c_t i2c) {
+    I2C_TypeDef* cmsis_i2c = _hal_get_cmsis_i2c(i2c);
+    cmsis_i2c->CR1 |= I2C_CR1_PE;
+}
+
+void hal_i2c_off(hal_i2c_t i2c) {
+    I2C_TypeDef* cmsis_i2c = _hal_get_cmsis_i2c(i2c);
+    cmsis_i2c->CR1 &= ~I2C_CR1_PE;
+}
+
+void hal_i2c_w(uint8_t val, uint8_t reg, uint8_t adr, hal_i2c_t i2c) {
+    I2C_TypeDef* cmsis_i2c = _hal_get_cmsis_i2c(i2c);
+
+    // start
+    cmsis_i2c->CR1 |= I2C_CR1_START;
+	while(!(cmsis_i2c->SR1 & I2C_SR1_SB));
+	(void)cmsis_i2c->SR1;
+
+    // send adr
+	cmsis_i2c->DR = adr << 1;
+	while(!(cmsis_i2c->SR1 & I2C_SR1_ADDR));
+	(void)cmsis_i2c->SR1;
+	(void)cmsis_i2c->SR2;
+
+    // send reg
+	cmsis_i2c->DR = reg;
+	while(!(cmsis_i2c->SR1 & I2C_SR1_TXE));	
+
+    // send data
+	cmsis_i2c->DR = val;
+	while(!(cmsis_i2c->SR1 & I2C_SR1_BTF));
+	cmsis_i2c->CR1 |= I2C_CR1_STOP;
+}
+
+uint8_t hal_i2c_r(uint8_t reg, uint8_t adr, hal_i2c_t i2c) {
+    I2C_TypeDef* cmsis_i2c = _hal_get_cmsis_i2c(i2c);
+
+    // start
+    cmsis_i2c->CR1 |= I2C_CR1_START;
+    while(!(cmsis_i2c->SR1 & I2C_SR1_SB));
+    (void)cmsis_i2c->SR1;
+
+    // send adr
+    cmsis_i2c->DR = adr << 1;
+    while(!(cmsis_i2c->SR1 & I2C_SR1_ADDR));
+
+    (void)cmsis_i2c->SR1;
+    (void)cmsis_i2c->SR2;
+
+    // send reg
+    cmsis_i2c->DR = reg;
+    while(!(cmsis_i2c->SR1 & I2C_SR1_TXE));
+    cmsis_i2c->CR1 |= I2C_CR1_STOP;
+
+    // restart
+    cmsis_i2c->CR1 |= I2C_CR1_START;
+    while(!(cmsis_i2c->SR1 & I2C_SR1_SB));
+    (void)cmsis_i2c->SR1;
+
+    // send adr(ro)
+    cmsis_i2c->DR = (adr << 1) | 1;
+    while(!(cmsis_i2c->SR1 & I2C_SR1_ADDR));
+
+    (void)cmsis_i2c->SR1;
+    (void)cmsis_i2c->SR2;
+
+    // read
+    uint8_t res;
+
+    cmsis_i2c->CR1 &= ~I2C_CR1_ACK;
+
+    while(!(cmsis_i2c->SR1 & I2C_SR1_RXNE)){};
+	res = cmsis_i2c->DR;	
+	cmsis_i2c->CR1 |= I2C_CR1_STOP;
+
+    cmsis_i2c->CR1 |= I2C_CR1_ACK;
+
+    return res;
+}
 
 // timer
 void hal_use_timer(hal_timer_t tim) {
@@ -644,7 +790,7 @@ void hal_use_timer(hal_timer_t tim) {
     else RCC->APB1ENR |= tim;
 }
 
-TIM_TypeDef* _hal_get_cmsis_timer(hal_timer_t tim) {
+static TIM_TypeDef* _hal_get_cmsis_timer(hal_timer_t tim) {
     switch(tim) {
         case HAL_TIMER1:
             return TIM1;
@@ -680,7 +826,7 @@ hal_timer_cfg_t hal_timer_cfg_new(uint32_t prescaler, uint32_t period, uint32_t 
     };
 }
 
-void _hal_set_cmsis_timer_pwm(TIM_TypeDef* tim, hal_timer_pwm_t pwm) {
+static void _hal_set_cmsis_timer_pwm(TIM_TypeDef* tim, hal_timer_pwm_t pwm) {
     switch(pwm) {
             case HAL_PWM1:
                 tim->CCMR1 |= TIM_CCMR1_OC1M_1 | TIM_CCMR1_OC1M_2;
@@ -700,7 +846,7 @@ void _hal_set_cmsis_timer_pwm(TIM_TypeDef* tim, hal_timer_pwm_t pwm) {
         }
 }
 
-IRQn_Type _hal_get_cmsis_timer_irq(hal_timer_t tim) {
+static IRQn_Type _hal_get_cmsis_timer_irq(hal_timer_t tim) {
     switch(tim) {
         case HAL_TIMER1:
             return TIM1_CC_IRQn;
@@ -716,7 +862,7 @@ IRQn_Type _hal_get_cmsis_timer_irq(hal_timer_t tim) {
     }
 }
 
-void _hal_set_cmsis_timer_irq(hal_timer_t tim, hal_irq_t hlr) {
+static void _hal_set_cmsis_timer_irq(hal_timer_t tim, hal_irq_t hlr) {
     switch(tim) {
         case HAL_TIMER1:
             _hal_timer_irq[0][0] = hlr;
@@ -803,7 +949,7 @@ void hal_use_adc(hal_adc_t adc) {
     RCC->APB2ENR |= adc;
 }
 
-ADC_TypeDef* _hal_get_cmsis_adc(hal_adc_t adc) {
+static ADC_TypeDef* _hal_get_cmsis_adc(hal_adc_t adc) {
     switch(adc) {
         case HAL_ADC1:
             return ADC1;
@@ -815,7 +961,7 @@ ADC_TypeDef* _hal_get_cmsis_adc(hal_adc_t adc) {
     }
 }
 
-void _hal_set_cmsis_adc_ch(ADC_TypeDef* adc, uint8_t ch) {
+static void _hal_set_cmsis_adc_ch(ADC_TypeDef* adc, uint8_t ch) {
     size_t smp_pos = 3 * (ch % 10);
 
     // enable channel
@@ -836,7 +982,7 @@ hal_adc_cfg_t hal_adc_cfg_new(uint8_t ch, hal_adc_mode_t mode) {
     };
 }
 
-void _hal_set_cmsis_adc_irq(hal_adc_t adc, hal_irq_t hlr) {
+static void _hal_set_cmsis_adc_irq(hal_adc_t adc, hal_irq_t hlr) {
     switch(adc) {
         case HAL_ADC1:
             _hal_adc_irq[0][0] = hlr;

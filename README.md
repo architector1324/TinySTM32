@@ -14,6 +14,7 @@ Collection:
 | `st7735s.h`  | Driver for 80x160 IPS TFT based on st7735s controller. |
 | `st7789.h`   | Driver for 240x240 IPS TFT based on st7789 controller. |
 | `sdhc.h`     | Driver for sdhc cards. |
+| `mpu6050.h` | Driver for `mpu6050` accelerometer. |
 | `fixed.h`   | Fast fixed point library. |
 
 Requirements:
