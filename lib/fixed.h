@@ -3,7 +3,7 @@
 // fixed point library
 #define FIXED_PREC 8
 
-typedef int16_t fxd_t;
+typedef int32_t fxd_t;
 
 #define fxd_new(x) (x)
 #define fxd_from_float(x) (fxd_t)((x) * (1 << FIXED_PREC)) // slow
