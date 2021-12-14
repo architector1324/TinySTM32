@@ -7,7 +7,7 @@
         {
             "name": "Cortex Debug",
             "cwd": "${workspaceRoot}",
-            "executable": "${workspaceRoot}/out/main.elf",
+            "executable": "${workspaceRoot}/out/${fileBasenameNoExtension}.elf",
             "request": "launch",
             "type": "cortex-debug",
             "device": "STM32F103C8",
