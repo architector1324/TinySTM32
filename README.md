@@ -7,6 +7,7 @@ Supported devices:
 - st7789 (240x240 IPS TFT)
 - MicroSD cards (btw any sdhc).
 - MPU6050 accelerometer + gyroscope.
+- Buzzer (piezoelectric speaker).
 
 Collection:
 | Library  | Description |
@@ -18,6 +19,7 @@ Collection:
 | `gfx.h`      | Graphics lib based on abstract display driver. |
 | `sdhc.h`     | Driver for sdhc cards. |
 | `mpu6050.h` | Driver for `mpu6050` accelerometer. |
+| `buzz.h`    | Driver for buzzer. |
 | `fixed.h`   | Fast fixed point library. |
 
 Requirements:

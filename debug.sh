@@ -2,7 +2,8 @@
 
 mkdir -p out
 
-arm-none-eabi-gcc -O3 -Wall -Werror \
+arm-none-eabi-gcc -Wall -Werror \
+                  -g -gdwarf-2 \
                   -fdata-sections \
                   -ffunction-sections  \
                   -mcpu=cortex-m3 -mthumb \

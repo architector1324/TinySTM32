@@ -206,6 +206,8 @@ void hal_timer_set_dc(hal_timer_t tim, uint16_t duty_cycle);
 void hal_timer_on(hal_timer_t tim);
 void hal_timer_off(hal_timer_t tim);
 
+void hal_timer_set_freq(hal_timer_t tim, uint32_t freq); // max freq = (SystemCoreClock / 1000) Hz
+
 // adc
 typedef enum {
     HAL_ADC1 = RCC_APB2ENR_ADC1EN,
@@ -904,6 +906,11 @@ void hal_timer_setup(hal_timer_t tim, hal_timer_cfg_t cfg) {
 void hal_timer_set_dc(hal_timer_t tim, uint16_t duty_cycle) {
     TIM_TypeDef* cmsis_timer = _hal_get_cmsis_timer(tim);
     cmsis_timer->CCR2 = duty_cycle;
+}
+
+void hal_timer_set_freq(hal_timer_t tim, uint32_t freq) {
+    TIM_TypeDef* cmsis_timer = _hal_get_cmsis_timer(tim);
+    cmsis_timer->PSC = ((SystemCoreClock / 1000) / freq) - 1;
 }
 
 void hal_timer_on(hal_timer_t tim) {
